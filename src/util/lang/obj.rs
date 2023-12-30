@@ -58,12 +58,10 @@ impl<T> StrongObj<T> {
         }
     }
 
-    pub fn new_cyclic(f: impl FnOnce(Obj<T>) -> T) -> Self {
+    pub fn new_cyclic(f: impl FnOnce(&Obj<T>) -> T) -> Self {
         Self {
             value: ManuallyDrop::new(Rc::new_cyclic(|weak| {
-                RefCell::new(f(Obj {
-                    value: weak.clone(),
-                }))
+                RefCell::new(f(unsafe { std::mem::transmute(weak) }))
             })),
         }
     }
@@ -140,6 +138,7 @@ impl<T> Drop for StrongObj<T> {
 
 // === Obj === //
 
+#[repr(transparent)]
 pub struct Obj<T> {
     value: Weak<RefCell<T>>,
 }
