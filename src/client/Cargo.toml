@@ -1,0 +1,8 @@
+[package]
+name = "giaw-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+giaw-shared = { version = "0.1.0", path = "../shared" }
+macroquad = "0.4.4"

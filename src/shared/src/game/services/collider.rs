@@ -55,16 +55,16 @@ pub struct Collider {
 impl Collider {
     pub fn new(aabb: Aabb) -> impl CyclicCtor<Self> {
         move |me, ob| {
+            // Link dependencies
             let transform = me.obj::<Transform>();
+            let manager = transform.get().deep_obj::<ColliderManager>();
+            transform.get_mut().set_collider(Some(ob.clone()));
 
-            let mut transform_mut = transform.get_mut();
-            let manager = transform_mut.deep_obj::<ColliderManager>();
-            transform_mut.set_collider(Some(ob.clone()));
-            drop(transform_mut);
-
+            // Add to manager
             let mut manager_mut = manager.get_mut();
             let index_in_manager = manager_mut.colliders.len();
             manager_mut.colliders.push(ob.clone());
+            drop(manager_mut);
 
             Self {
                 me,

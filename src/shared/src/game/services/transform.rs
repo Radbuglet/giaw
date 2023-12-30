@@ -1,5 +1,6 @@
 use std::cell::Cell;
 
+use autoken::ImmutableBorrow;
 use extend::ext;
 use glam::{Affine2, Vec2};
 
@@ -86,11 +87,11 @@ impl Transform {
         self.local_xform().translation
     }
 
-	pub fn set_local_pos(&self, pos: Vec2) {
-		let mut xform = self.local_xform();
-		xform.translation = pos;
-		self.set_local_xform(xform);
-	}
+    pub fn set_local_pos(&self, pos: Vec2) {
+        let mut xform = self.local_xform();
+        xform.translation = pos;
+        self.set_local_xform(xform);
+    }
 
     pub fn global_pos(&self) -> Vec2 {
         self.global_xform().translation
@@ -117,6 +118,7 @@ impl Transform {
     }
 
     pub fn deep_obj<T: 'static>(&self) -> Obj<T> {
+        let loaner = ImmutableBorrow::<Transform>::new();
         let mut guard;
         let mut search = self;
 
@@ -129,7 +131,7 @@ impl Transform {
                 panic!("failed to find component in ancestry");
             };
 
-            guard = parent.get();
+            guard = parent.get_on_loan(&loaner);
             search = &*guard;
         }
     }

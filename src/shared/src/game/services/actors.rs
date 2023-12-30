@@ -29,11 +29,20 @@ impl ActorManager {
         }
     }
 
+    pub fn despawn_all(&mut self) {
+        for actor in self.actors.drain() {
+            let loaner = ImmutableBorrow::new();
+            if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
+                dtor.call();
+            };
+        }
+    }
+
     pub fn process_despawns(&mut self) {
         for actor in self.queued_despawns.drain() {
             if let Some(actor) = self.actors.take(&actor) {
                 let loaner = ImmutableBorrow::new();
-                if let Some(dtor) = actor.try_get::<ActorDespawnHandler>(&loaner) {
+                if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
                     dtor.call();
                 };
             }
@@ -42,5 +51,9 @@ impl ActorManager {
 }
 
 delegate! {
-    pub fn ActorDespawnHandler()
+    pub fn DespawnHandler()
+}
+
+delegate! {
+    pub fn UpdateHandler()
 }

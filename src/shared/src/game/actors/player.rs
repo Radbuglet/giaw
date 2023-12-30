@@ -2,7 +2,7 @@ use glam::Vec2;
 
 use crate::{
     game::services::{
-        actors::{ActorDespawnHandler, ActorManager},
+        actors::{ActorManager, DespawnHandler},
         collider::Collider,
         transform::Transform,
     },
@@ -38,7 +38,7 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         .with_cyclic(Collider::new_sized(Vec2::ZERO, Vec2::splat(2.)))
         .with_cyclic(PlayerState::new())
         .with_cyclic(|me, _| {
-            ActorDespawnHandler::new(move || {
+            DespawnHandler::new(move || {
                 me.get::<Collider>().despawn();
             })
         })
