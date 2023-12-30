@@ -1,9 +1,15 @@
+use std::mem;
+
 use autoken::ImmutableBorrow;
+use extend::ext;
 use rustc_hash::FxHashSet;
 
 use crate::{
     delegate,
-    util::lang::entity::{Entity, OwnedEntity},
+    util::lang::{
+        entity::{Entity, OwnedEntity},
+        obj::Obj,
+    },
 };
 
 use super::transform::Transform;
@@ -21,6 +27,10 @@ impl ActorManager {
         actor_ref
     }
 
+    pub fn actors(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.actors.iter().map(OwnedEntity::entity)
+    }
+
     pub fn queue_despawn(&mut self, actor: &Transform) {
         self.queued_despawns.insert(actor.entity());
 
@@ -28,25 +38,41 @@ impl ActorManager {
             self.queue_despawn(&descendant.get());
         }
     }
+}
 
-    pub fn despawn_all(&mut self) {
-        for actor in self.actors.drain() {
+#[ext]
+pub impl Obj<ActorManager> {
+    fn process_despawns(&self) {
+        let queued_despawns = mem::take(&mut self.get_mut().queued_despawns);
+
+        for actor in &queued_despawns {
+            if !actor.is_alive() {
+                continue;
+            }
+
+            let loaner = ImmutableBorrow::new();
+
+            if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
+                dtor.call();
+            };
+        }
+
+        let mut me = self.get_mut();
+        for actor in &queued_despawns {
+            me.actors.remove(actor);
+        }
+    }
+
+    fn despawn_all(&self) {
+        let actors = mem::take(&mut self.get_mut().actors);
+        for actor in &actors {
             let loaner = ImmutableBorrow::new();
             if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
                 dtor.call();
             };
         }
-    }
 
-    pub fn process_despawns(&mut self) {
-        for actor in self.queued_despawns.drain() {
-            if let Some(actor) = self.actors.take(&actor) {
-                let loaner = ImmutableBorrow::new();
-                if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
-                    dtor.call();
-                };
-            }
-        }
+        drop(actors);
     }
 }
 

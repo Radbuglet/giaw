@@ -77,8 +77,8 @@ impl Collider {
         }
     }
 
-    pub fn new_sized(offset: Vec2, size: Vec2) -> impl CyclicCtor<Self> {
-        Self::new(Aabb::new_sized(offset, size))
+    pub fn new_centered(offset: Vec2, size: Vec2) -> impl CyclicCtor<Self> {
+        Self::new(Aabb::new_centered(offset, size))
     }
 
     pub fn despawn(&self) {

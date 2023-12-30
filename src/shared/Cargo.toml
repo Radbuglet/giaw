@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 autoken = "0.1.0"
 extend = "1.2.0"
-glam = "0.25.0"
+glam = "0.21.3"
 hashbrown = "0.14.3"
 rustc-hash = "1.1.0"

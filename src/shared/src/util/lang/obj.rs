@@ -51,6 +51,14 @@ impl<T> Clone for StrongObj<T> {
     }
 }
 
+impl<T> Eq for StrongObj<T> {}
+
+impl<T> PartialEq for StrongObj<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.value, &other.value)
+    }
+}
+
 impl<T> StrongObj<T> {
     pub fn new(value: T) -> Self {
         Self {
@@ -166,6 +174,14 @@ impl<T> Clone for Obj<T> {
         Self {
             value: self.value.clone(),
         }
+    }
+}
+
+impl<T> Eq for Obj<T> {}
+
+impl<T> PartialEq for Obj<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Weak::ptr_eq(&self.value, &other.value)
     }
 }
 

@@ -1,14 +1,20 @@
 use giaw_shared::{
-    game::{
-        actors::player::create_player,
-        services::{
-            actors::{ActorManager, DespawnHandler, UpdateHandler},
-            collider::ColliderManager,
-            transform::Transform,
-        },
+    game::services::{
+        actors::{ActorManager, DespawnHandler, ObjActorManagerExt, UpdateHandler},
+        collider::ColliderManager,
+        transform::Transform,
     },
     util::lang::{entity::OwnedEntity, obj::Obj},
 };
+use macroquad::{
+    camera::{pop_camera_state, push_camera_state, set_camera},
+    math::Vec2,
+    window::{screen_height, screen_width},
+};
+
+use crate::engine::scene::RenderHandler;
+
+use super::{actors::player::create_player, services::camera::CameraManager};
 
 pub fn create_game(parent: Option<Obj<Transform>>) -> OwnedEntity {
     let scene = OwnedEntity::new()
@@ -16,14 +22,38 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> OwnedEntity {
         .with_cyclic(Transform::new(parent))
         .with(ActorManager::default())
         .with(ColliderManager::default())
+        .with(CameraManager::default())
         .with_cyclic(|me, _| {
             UpdateHandler::new(move || {
-                me.get_mut::<ActorManager>().process_despawns();
+                for actor in me.get::<ActorManager>().actors() {
+                    actor.get::<UpdateHandler>().call();
+                }
+
+                me.obj::<ActorManager>().process_despawns();
+            })
+        })
+        .with_cyclic(|me, _| {
+            RenderHandler::new(move || {
+                push_camera_state();
+                if let Some(camera) = me
+                    .get_mut::<CameraManager>()
+                    .camera_snapshot(Vec2::new(screen_width(), screen_height()))
+                {
+                    set_camera(&camera);
+                } else {
+                    eprintln!("No camera >:(");
+                }
+
+                for actor in me.get::<ActorManager>().actors() {
+                    actor.get::<RenderHandler>().call();
+                }
+
+                pop_camera_state();
             })
         })
         .with_cyclic(|me, _| {
             DespawnHandler::new(move || {
-                me.get_mut::<ActorManager>().despawn_all();
+                me.obj::<ActorManager>().despawn_all();
             })
         });
 

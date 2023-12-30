@@ -130,6 +130,7 @@ dependencies = [
 name = "giaw-client"
 version = "0.1.0"
 dependencies = [
+ "extend",
  "giaw-shared",
  "macroquad",
 ]
@@ -140,7 +141,7 @@ version = "0.1.0"
 dependencies = [
  "autoken",
  "extend",
- "glam 0.25.0",
+ "glam",
  "hashbrown 0.14.3",
  "rustc-hash",
 ]
@@ -150,12 +151,6 @@ name = "glam"
 version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "518faa5064866338b013ff9b2350dc318e14cc4fcd6cb8206d7e7c9886c98815"
-
-[[package]]
-name = "glam"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "151665d9be52f9bb40fc7966565d39666f2d1e69233571b71b87791c7e0528b3"
 
 [[package]]
 name = "hashbrown"
@@ -204,7 +199,7 @@ checksum = "a0bf249d79f5080e200334fe30ffca25582d682ee2e180768ad7f121ba9f8caa"
 dependencies = [
  "bumpalo",
  "fontdue",
- "glam 0.21.3",
+ "glam",
  "image",
  "macroquad_macro",
  "miniquad",

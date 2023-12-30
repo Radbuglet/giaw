@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+extend = "1.2.0"
 giaw-shared = { version = "0.1.0", path = "../shared" }
 macroquad = "0.4.4"
