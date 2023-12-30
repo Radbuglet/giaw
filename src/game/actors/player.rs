@@ -1,7 +1,7 @@
 use crate::{
     game::services::{actors::ActorManager, transform::Transform},
     util::lang::{
-        entity::{cyclic_ctor, CyclicCtor, Entity},
+        entity::{CyclicCtor, Entity},
         obj::Obj,
     },
 };
@@ -13,9 +13,9 @@ pub struct PlayerState {
 
 impl PlayerState {
     fn new_cyclic() -> impl CyclicCtor<Self> {
-        cyclic_ctor(|me, _ob| Self {
+        |me, _ob| Self {
             transform: me.obj(),
-        })
+        }
     }
 
     pub fn update(&mut self) {}

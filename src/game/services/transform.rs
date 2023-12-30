@@ -4,7 +4,7 @@ use extend::ext;
 use glam::{Affine2, Vec2};
 
 use crate::util::lang::{
-    entity::{cyclic_ctor, CyclicCtor, Entity},
+    entity::{CyclicCtor, Entity},
     obj::Obj,
 };
 
@@ -20,7 +20,7 @@ pub struct Transform {
 
 impl Transform {
     pub fn new_cyclic(parent: Option<Obj<Transform>>) -> impl CyclicCtor<Self> {
-        cyclic_ctor(|me, ob| {
+        |me, ob| {
             let mut index_in_parent = 0;
 
             if let Some(parent) = &parent {
@@ -37,7 +37,7 @@ impl Transform {
                 local_xform: Cell::new(Affine2::IDENTITY),
                 global_xform: Cell::new(Affine2::NAN),
             }
-        })
+        }
     }
 
     pub fn local_xform(&self) -> Affine2 {
@@ -139,7 +139,7 @@ pub impl Obj<Transform> {
 
 #[ext]
 pub impl Entity {
-	fn deep_obj<T: 'static>(self) -> Obj<T> {
-		self.get::<Transform>().deep_obj()
-	}
+    fn deep_obj<T: 'static>(self) -> Obj<T> {
+        self.get::<Transform>().deep_obj()
+    }
 }

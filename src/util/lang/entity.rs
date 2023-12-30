@@ -485,7 +485,7 @@ impl Entity {
     }
 
     pub fn with_cyclic<T: 'static>(self, f: impl CyclicCtor<T>) -> Self {
-        self.insert(StrongObj::new_cyclic(|ob| f.construct(self, ob)));
+        self.insert(StrongObj::new_cyclic(|ob| f(self, ob)));
         self
     }
 
@@ -749,19 +749,9 @@ impl Drop for OwnedEntity {
 
 // === Cyclic Constructor === //
 
-pub trait CyclicCtor<C> {
-    fn construct(self, me: Entity, ob: &Obj<C>) -> C;
-}
+pub trait CyclicCtor<C>: FnOnce(Entity, &Obj<C>) -> C {}
 
-impl<C, F: FnOnce(Entity, &Obj<C>) -> C> CyclicCtor<C> for F {
-    fn construct(self, me: Entity, ob: &Obj<C>) -> C {
-        self(me, ob)
-    }
-}
-
-pub fn cyclic_ctor<C, F: FnOnce(Entity, &Obj<C>) -> C>(f: F) -> F {
-    f
-}
+impl<C, F: FnOnce(Entity, &Obj<C>) -> C> CyclicCtor<C> for F {}
 
 // === Debug utilities === //
 

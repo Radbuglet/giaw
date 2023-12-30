@@ -1,7 +1,4 @@
-use crate::util::lang::{
-    entity::{cyclic_ctor, CyclicCtor},
-    obj::Obj,
-};
+use crate::util::lang::{entity::CyclicCtor, obj::Obj};
 
 use super::transform::EntityExt;
 
@@ -15,8 +12,8 @@ pub struct Collider {
 
 impl Collider {
     pub fn new_cyclic() -> impl CyclicCtor<Self> {
-        cyclic_ctor(|me, _| Self {
+        |me, _| Self {
             manager: me.deep_obj::<ColliderManager>(),
-        })
+        }
     }
 }
