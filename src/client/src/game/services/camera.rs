@@ -101,7 +101,7 @@ impl VirtualCamera {
         let mat = Mat4::from_cols(
             mat.x_axis.extend(0.).extend(0.),
             mat.y_axis.extend(0.).extend(0.),
-            Vec4::ZERO,
+            Vec4::new(0., 0., 1., 0.),
             mat.translation.extend(0.).extend(1.),
         );
 

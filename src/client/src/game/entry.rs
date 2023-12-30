@@ -1,6 +1,6 @@
 use giaw_shared::{
     game::services::{
-        actors::{ActorManager, DespawnHandler, ObjActorManagerExt, UpdateHandler},
+        actors::{ActorManager, DespawnHandler, UpdateHandler},
         collider::ColliderManager,
         transform::Transform,
     },
@@ -25,11 +25,13 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> OwnedEntity {
         .with(CameraManager::default())
         .with_cyclic(|me, _| {
             UpdateHandler::new(move || {
-                for actor in me.get::<ActorManager>().actors() {
-                    actor.get::<UpdateHandler>().call();
-                }
+                let actor_mgr = me.get::<ActorManager>();
 
-                me.obj::<ActorManager>().process_despawns();
+                cbit::cbit!(for actor in actor_mgr.iter_actors() {
+                    actor.get::<UpdateHandler>().call();
+                });
+
+                actor_mgr.process_despawns();
             })
         })
         .with_cyclic(|me, _| {
@@ -44,16 +46,16 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> OwnedEntity {
                     eprintln!("No camera >:(");
                 }
 
-                for actor in me.get::<ActorManager>().actors() {
+                cbit::cbit!(for actor in me.get::<ActorManager>().iter_actors() {
                     actor.get::<RenderHandler>().call();
-                }
+                });
 
                 pop_camera_state();
             })
         })
         .with_cyclic(|me, _| {
             DespawnHandler::new(move || {
-                me.obj::<ActorManager>().despawn_all();
+                me.get::<ActorManager>().despawn_all();
             })
         });
 

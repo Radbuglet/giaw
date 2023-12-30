@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cbit = "0.1.0"
+color-backtrace = "0.6.1"
 extend = "1.2.0"
 giaw-shared = { version = "0.1.0", path = "../shared" }
 macroquad = "0.4.4"

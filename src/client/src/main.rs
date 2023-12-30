@@ -1,6 +1,6 @@
 use std::{future::Future, pin::pin};
 
-use giaw_client::{game::entry::create_game, engine::scene::RenderHandler};
+use giaw_client::{engine::scene::RenderHandler, game::entry::create_game};
 use giaw_shared::game::services::actors::{DespawnHandler, UpdateHandler};
 use macroquad::{
     input::{is_key_pressed, is_quit_requested},
@@ -9,6 +9,8 @@ use macroquad::{
 };
 
 fn main() {
+    color_backtrace::install();
+
     // Macroquad calls into FFI, which AuToken can't trace. We work around this by creating a fake
     // call to the actual main function.
     if false {
@@ -29,8 +31,8 @@ async fn amain() {
             break;
         }
 
-		scene.get::<UpdateHandler>().call();
-		scene.get::<RenderHandler>().call();
+        scene.get::<UpdateHandler>().call();
+        scene.get::<RenderHandler>().call();
         next_frame().await;
     }
 

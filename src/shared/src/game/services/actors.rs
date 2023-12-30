@@ -1,49 +1,59 @@
-use std::mem;
+use std::{cell::RefCell, ops::ControlFlow};
 
 use autoken::ImmutableBorrow;
-use extend::ext;
 use rustc_hash::FxHashSet;
 
 use crate::{
     delegate,
-    util::lang::{
-        entity::{Entity, OwnedEntity},
-        obj::Obj,
-    },
+    util::lang::entity::{Entity, OwnedEntity},
 };
 
 use super::transform::Transform;
 
 #[derive(Debug, Default)]
 pub struct ActorManager {
-    actors: FxHashSet<OwnedEntity>,
-    queued_despawns: FxHashSet<Entity>,
+    actors: RefCell<FxHashSet<OwnedEntity>>,
+    queued_spawns: RefCell<Vec<OwnedEntity>>,
+    queued_despawns: RefCell<FxHashSet<Entity>>,
 }
 
 impl ActorManager {
-    pub fn spawn(&mut self) -> Entity {
+    pub fn spawn(&self) -> Entity {
         let (actor, actor_ref) = OwnedEntity::new().split_guard();
-        self.actors.insert(actor);
+
+        if let Ok(mut actors) = self.actors.try_borrow_mut() {
+            actors.insert(actor);
+        } else {
+            self.queued_spawns.borrow_mut().push(actor);
+        }
+
         actor_ref
     }
 
-    pub fn actors(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.actors.iter().map(OwnedEntity::entity)
+    pub fn iter_actors<B>(&self, mut f: impl FnMut(Entity) -> ControlFlow<B>) -> ControlFlow<B> {
+        let actors = self.actors.borrow();
+        for actor in &*actors {
+            f(actor.entity())?;
+        }
+        drop(actors);
+
+        if let Ok(mut actors) = self.actors.try_borrow_mut() {
+            actors.extend(self.queued_spawns.borrow_mut().drain(..));
+        }
+
+        ControlFlow::Continue(())
     }
 
-    pub fn queue_despawn(&mut self, actor: &Transform) {
-        self.queued_despawns.insert(actor.entity());
+    pub fn queue_despawn(&self, actor: &Transform) {
+        self.queued_despawns.borrow_mut().insert(actor.entity());
 
         for descendant in actor.children() {
             self.queue_despawn(&descendant.get());
         }
     }
-}
 
-#[ext]
-pub impl Obj<ActorManager> {
-    fn process_despawns(&self) {
-        let queued_despawns = mem::take(&mut self.get_mut().queued_despawns);
+    pub fn process_despawns(&self) {
+        let queued_despawns = self.queued_despawns.take();
 
         for actor in &queued_despawns {
             if !actor.is_alive() {
@@ -57,14 +67,16 @@ pub impl Obj<ActorManager> {
             };
         }
 
-        let mut me = self.get_mut();
+        let mut actors = self.actors.borrow_mut();
+
         for actor in &queued_despawns {
-            me.actors.remove(actor);
+            actors.remove(actor);
         }
     }
 
-    fn despawn_all(&self) {
-        let actors = mem::take(&mut self.get_mut().actors);
+    pub fn despawn_all(&self) {
+        let actors = self.actors.take();
+
         for actor in &actors {
             let loaner = ImmutableBorrow::new();
             if let Some(dtor) = actor.try_get::<DespawnHandler>(&loaner) {
