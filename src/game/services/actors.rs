@@ -6,6 +6,8 @@ use crate::{
     util::lang::entity::{Entity, OwnedEntity},
 };
 
+use super::transform::Transform;
+
 #[derive(Debug, Default)]
 pub struct ActorManager {
     actors: FxHashSet<OwnedEntity>,
@@ -19,8 +21,12 @@ impl ActorManager {
         actor_ref
     }
 
-    pub fn queue_despawn(&mut self, actor: Entity) {
-        self.queued_despawns.insert(actor);
+    pub fn queue_despawn(&mut self, actor: &Transform) {
+        self.queued_despawns.insert(actor.entity());
+
+        for descendant in actor.children() {
+            self.queue_despawn(&descendant.get());
+        }
     }
 
     pub fn process_despawns(&mut self) {

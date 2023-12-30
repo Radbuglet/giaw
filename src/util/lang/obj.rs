@@ -127,8 +127,11 @@ impl<T> StrongObj<T> {
 
 impl<T> Drop for StrongObj<T> {
     fn drop(&mut self) {
-        if let Err(err) = self.value.try_borrow_mut() {
-            panic!("attempted to drop StrongObj while in use: {err:?}");
+        // Ensure that we're not about to drop an actively-borrowed value.
+        if Rc::strong_count(&self.value) == 1 {
+            if let Err(err) = self.value.try_borrow_mut() {
+                panic!("attempted to drop StrongObj while in use: {err:?}");
+            }
         }
 
         // We black-box the destructor to avoid false-positives due to weird MIR flags.

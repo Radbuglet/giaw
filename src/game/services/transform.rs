@@ -8,18 +8,21 @@ use crate::util::lang::{
     obj::Obj,
 };
 
+use super::collider::Collider;
+
 #[derive(Debug)]
 pub struct Transform {
     me: Entity,
     parent: Option<Obj<Transform>>,
     children: Vec<Obj<Transform>>,
     index_in_parent: usize,
+    collider: Option<Obj<Collider>>,
     local_xform: Cell<Affine2>,
     global_xform: Cell<Affine2>,
 }
 
 impl Transform {
-    pub fn new_cyclic(parent: Option<Obj<Transform>>) -> impl CyclicCtor<Self> {
+    pub fn new(parent: Option<Obj<Transform>>) -> impl CyclicCtor<Self> {
         |me, ob| {
             let mut index_in_parent = 0;
 
@@ -34,6 +37,7 @@ impl Transform {
                 parent,
                 children: Vec::new(),
                 index_in_parent,
+                collider: None,
                 local_xform: Cell::new(Affine2::IDENTITY),
                 global_xform: Cell::new(Affine2::NAN),
             }
@@ -47,20 +51,6 @@ impl Transform {
     pub fn set_local_xform(&self, xform: Affine2) {
         self.local_xform.set(xform);
         self.invalidate_global_xform();
-    }
-
-    pub fn invalidate_global_xform(&self) {
-        if !self.global_xform.get().is_nan() {
-            self.global_xform.set(Affine2::NAN);
-
-            for child in &self.children {
-                child.get().invalidate_global_xform();
-            }
-        }
-    }
-
-    pub fn local_pos(&self) -> Vec2 {
-        self.local_xform().translation
     }
 
     pub fn global_xform(&self) -> Affine2 {
@@ -78,6 +68,30 @@ impl Transform {
         xform
     }
 
+    pub fn invalidate_global_xform(&self) {
+        if !self.global_xform.get().is_nan() {
+            self.global_xform.set(Affine2::NAN);
+
+            if let Some(collider) = &self.collider {
+                collider.get().invalidate_global_aabb();
+            }
+
+            for child in &self.children {
+                child.get().invalidate_global_xform();
+            }
+        }
+    }
+
+    pub fn local_pos(&self) -> Vec2 {
+        self.local_xform().translation
+    }
+
+	pub fn set_local_pos(&self, pos: Vec2) {
+		let mut xform = self.local_xform();
+		xform.translation = pos;
+		self.set_local_xform(xform);
+	}
+
     pub fn global_pos(&self) -> Vec2 {
         self.global_xform().translation
     }
@@ -92,6 +106,14 @@ impl Transform {
 
     pub fn entity(&self) -> Entity {
         self.me
+    }
+
+    pub fn collider(&self) -> Option<&Obj<Collider>> {
+        self.collider.as_ref()
+    }
+
+    pub(super) fn set_collider(&mut self, collider: Option<Obj<Collider>>) {
+        self.collider = collider;
     }
 
     pub fn deep_obj<T: 'static>(&self) -> Obj<T> {
