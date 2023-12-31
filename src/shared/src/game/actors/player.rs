@@ -2,17 +2,21 @@ use glam::Vec2;
 
 use crate::{
     game::services::{
-        kinematic::KinematicManager,
+        kinematic::{filter_descendants, KinematicManager},
         transform::{Collider, EntityExt, Transform},
     },
-    util::lang::{entity::CyclicCtor, obj::Obj},
+    util::{
+        lang::{entity::CyclicCtor, obj::Obj},
+        math::aabb::Aabb,
+    },
 };
 
 #[derive(Debug)]
 pub struct PlayerState {
     transform: Obj<Transform>,
     collider: Obj<Collider>,
-    kine: Obj<KinematicManager>,
+    kinematic: Obj<KinematicManager>,
+    pub velocity: Vec2,
 }
 
 impl PlayerState {
@@ -20,18 +24,39 @@ impl PlayerState {
         |me, _ob| Self {
             transform: me.obj(),
             collider: me.obj(),
-            kine: me.deep_obj(),
+            kinematic: me.deep_obj(),
+            velocity: Vec2::ZERO,
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn is_on_ground(&self) -> bool {
+        let kinematic = self.kinematic.get();
+        let aabb = self.collider.get().global_aabb();
+        let aabb = Aabb {
+            min: Vec2::new(aabb.min.x, aabb.max.y),
+            max: Vec2::new(aabb.max.x, aabb.max.y + 0.01),
+        };
+
+        cbit::cbit!(for collider in kinematic.iter_colliders_in(aabb) {
+            if filter_descendants(Some(&self.transform))(collider) {
+                return true;
+            }
+        });
+
+        false
+    }
+
+    pub fn update(&mut self, dt: f32) {
         let xform = self.transform.get();
         let aabb = self.collider.get().global_aabb();
+        let kinematic = self.kinematic.get();
 
-        xform.translate_local_pos(self.kine.get().move_by(
+        self.velocity += Vec2::new(0., 18.) * dt;
+
+        xform.translate_local_pos(kinematic.move_by(
             aabb,
-            Vec2::Y * 0.1,
-            Some(&self.transform),
+            self.velocity * dt,
+            filter_descendants(Some(&self.transform)),
         ));
     }
 }

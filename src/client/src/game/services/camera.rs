@@ -71,18 +71,18 @@ impl VirtualCamera {
         let xform = self.transform.get().global_xform();
 
         let corners = self
-            .local_aabb()
+            .aabb()
             .corners()
             .map(|corner| xform.transform_point2(corner));
 
         Aabb::new_poly(&corners)
     }
 
-    pub fn local_aabb(&self) -> Aabb {
+    pub fn aabb(&self) -> Aabb {
         self.aabb
     }
 
-    pub fn set_local_aabb(&mut self, aabb: Aabb) {
+    pub fn set_aabb(&mut self, aabb: Aabb) {
         self.aabb = aabb;
     }
 
@@ -103,8 +103,11 @@ impl VirtualCamera {
         // apply in the same order in which they apply in code, which means that we're always pushing
         // matrices to the left of the active one.
 
-        let mat = Affine2::from_scale(self.aabb.size() * Vec2::new(1., -1.)) * mat; // Scale...
-        let mat = Affine2::from_translation(self.aabb.center()) * mat; // ...then translate!
+        // Scale... (N.B. we use a y-down system)
+        let mat = Affine2::from_scale(self.aabb.size() * Vec2::new(1., -1.) / 2.) * mat;
+
+        // ...then translate!
+        let mat = Affine2::from_translation(self.aabb.center()) * mat;
 
         // Now that the camera is mapped to the AABB's bounds in local space, we can convert that
         // into world-space coordinates.

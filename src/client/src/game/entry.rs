@@ -7,10 +7,14 @@ use giaw_shared::{
     },
     util::{
         lang::{entity::StrongEntity, obj::Obj},
-        math::aabb::Aabb,
+        math::aabb::{Aabb, AabbI},
     },
 };
-use macroquad::{color::GREEN, math::IVec2};
+use macroquad::{
+    color::{GREEN, SKYBLUE},
+    math::IVec2,
+    window::clear_background,
+};
 
 use crate::engine::scene::RenderHandler;
 
@@ -31,7 +35,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(CameraManager::default())
         .with_cyclic(|_, _| {
             let mut map = TileMap::default();
-            let layer = map.push_layer("under_player", 10.);
+            let layer = map.push_layer("under_player", 0.5);
             let placeholder;
 
             {
@@ -46,7 +50,12 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                 );
             }
 
-            map.set(layer, IVec2::new(0, 5), placeholder);
+            for pos in AabbI::new_sized(IVec2::new(-10, 5), IVec2::new(20, 20))
+                .inclusive()
+                .iter()
+            {
+                map.set(layer, pos, placeholder);
+            }
             map
         })
         .with_cyclic(KinematicManager::new())
@@ -64,6 +73,8 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         })
         .with_cyclic(|me, _| {
             RenderHandler::new(move || {
+                clear_background(SKYBLUE);
+
                 me.get::<WorldRenderer>().render();
             })
         })

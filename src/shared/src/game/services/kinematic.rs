@@ -74,7 +74,9 @@ impl KinematicManager {
 
                 // For each visible tile...
                 for pos in tile_check_aabb.inclusive().iter() {
-                    let offset = tile_map.layers[layer.0].tile_to_actor_rect(pos).min;
+                    let layer_info = &tile_map.layers[layer.0];
+                    let offset = layer_info.tile_to_actor_rect(pos).min;
+                    let size = layer_info.size;
 
                     let material = tile_map.get(layer, pos);
                     if material.id == 0 {
@@ -85,6 +87,10 @@ impl KinematicManager {
 
                     // For each aabb in that tile...
                     for tile_aabb in &info.aabbs {
+                        let tile_aabb = Aabb {
+                            min: tile_aabb.min * size,
+                            max: tile_aabb.max * size,
+                        };
                         let tile_aabb = tile_aabb.translated(offset);
 
                         // Check if the collision is real and yield it
@@ -110,7 +116,7 @@ impl KinematicManager {
         ControlFlow::Continue(())
     }
 
-    pub fn move_by_raw(
+    pub fn move_by(
         &self,
         aabb: Aabb,
         by: Vec2,
@@ -153,20 +159,6 @@ impl KinematicManager {
 
         total_by
     }
-
-    pub fn move_by(
-        &self,
-        aabb: Aabb,
-        by: Vec2,
-        ignore_descendants: Option<&Obj<Transform>>,
-    ) -> Vec2 {
-        self.move_by_raw(aabb, by, |collider| match (collider, ignore_descendants) {
-            (AnyCollision::Collider(_, ob, _), Some(ignore_descendants)) => {
-                !ob.get().transform().is_descendant_of(ignore_descendants)
-            }
-            _ => true,
-        })
-    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -181,5 +173,16 @@ impl AnyCollision<'_> {
             AnyCollision::Tile(_, _, aabb) => aabb,
             AnyCollision::Collider(_, _, aabb) => aabb,
         }
+    }
+}
+
+pub fn filter_descendants(
+    ignore_descendants: Option<&Obj<Transform>>,
+) -> impl FnMut(AnyCollision<'_>) -> bool + '_ {
+    move |collider| match (collider, ignore_descendants) {
+        (AnyCollision::Collider(_, ob, _), Some(ignore_descendants)) => {
+            !ob.get().transform().is_descendant_of(ignore_descendants)
+        }
+        _ => true,
     }
 }
