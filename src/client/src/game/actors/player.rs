@@ -3,8 +3,7 @@ use giaw_shared::{
         actors::player::PlayerState,
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
-            collider::Collider,
-            transform::Transform,
+            transform::{Collider, Transform},
         },
     },
     util::{
@@ -33,6 +32,7 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         // Handlers
         .with_cyclic(|me, _| {
             let player = me.obj::<PlayerState>();
+
             UpdateHandler::new(move || {
                 player.get_mut().update();
             })

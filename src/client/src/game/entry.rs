@@ -1,11 +1,14 @@
 use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
-        collider::ColliderManager,
+        kinematic::{KinematicManager, TileColliderDescriptor},
         tile::TileMap,
-        transform::Transform,
+        transform::{ColliderManager, Transform},
     },
-    util::lang::{entity::StrongEntity, obj::Obj},
+    util::{
+        lang::{entity::StrongEntity, obj::Obj},
+        math::aabb::Aabb,
+    },
 };
 use macroquad::{color::GREEN, math::IVec2};
 
@@ -38,13 +41,15 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                     "placeholder",
                     StrongEntity::new()
                         .with("placeholder descriptor")
-                        .with(TileVisualDescriptor { color: GREEN }),
+                        .with(TileVisualDescriptor { color: GREEN })
+                        .with(TileColliderDescriptor::new([Aabb::ZERO_TO_ONE])),
                 );
             }
 
-            map.set(layer, IVec2::ZERO, placeholder);
+            map.set(layer, IVec2::new(0, 5), placeholder);
             map
         })
+        .with_cyclic(KinematicManager::new())
         .with_cyclic(WorldRenderer::new())
         .with_cyclic(|me, _| {
             UpdateHandler::new(move || {

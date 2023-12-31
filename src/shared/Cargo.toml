@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 autoken = "0.1.0"
+cbit = "0.1.0"
 derive-where = "1.2.7"
 extend = "1.2.0"
 glam = "0.21.3"
 hashbrown = "0.14.3"
 rustc-hash = "1.1.0"
+smallvec = "1.11.2"

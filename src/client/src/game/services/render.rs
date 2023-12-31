@@ -24,7 +24,7 @@ pub struct WorldRenderer {
     actors: Obj<ActorManager>,
     tile_map: Obj<TileMap>,
     camera_mgr: Obj<CameraManager>,
-    tile_infos: RefCell<MaterialCache<TileVisualDescriptor>>,
+    mat_cache: RefCell<MaterialCache<TileVisualDescriptor>>,
 }
 
 impl WorldRenderer {
@@ -39,7 +39,7 @@ impl WorldRenderer {
                 actors,
                 tile_map,
                 camera_mgr,
-                tile_infos: RefCell::new(tile_infos),
+                mat_cache: RefCell::new(tile_infos),
             }
         }
     }
@@ -63,7 +63,7 @@ impl WorldRenderer {
         for layer in layers {
             {
                 let mut tile_map = self.tile_map.get_mut();
-                let mut tile_infos = self.tile_infos.borrow_mut();
+                let mut tile_infos = self.mat_cache.borrow_mut();
                 let visible_aabb = tile_map.layers[layer.0].actor_aabb_to_tile(visible_aabb);
 
                 for pos in visible_aabb.inclusive().iter() {

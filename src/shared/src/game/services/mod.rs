@@ -1,4 +1,4 @@
 pub mod actors;
-pub mod collider;
+pub mod kinematic;
 pub mod tile;
 pub mod transform;
