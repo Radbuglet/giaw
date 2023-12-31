@@ -20,7 +20,7 @@ fn main() {
         let _ = pin!(amain()).poll(&mut thin_air());
     }
 
-    macroquad::Window::new("Giaw", amain());
+    macroquad::Window::new("Game In A Week", amain());
 }
 
 async fn amain() {

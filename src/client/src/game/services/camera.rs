@@ -1,5 +1,5 @@
 use giaw_shared::{
-    game::services::transform::Transform,
+    game::services::transform::{EntityExt, Transform},
     util::{
         lang::{entity::CyclicCtor, obj::Obj},
         math::aabb::Aabb,
@@ -57,15 +57,32 @@ impl VirtualCamera {
         }
     }
 
-    pub fn new_constrained(constraints: VirtualCameraConstraints) -> impl CyclicCtor<Self> {
-        Self::new(Aabb::ZERO, constraints)
+    pub fn new_attached(
+        aabb: Aabb,
+        constraints: VirtualCameraConstraints,
+    ) -> impl CyclicCtor<Self> {
+        move |me, ob| {
+            me.deep_obj::<CameraManager>().get_mut().push(ob.clone());
+            Self::new(aabb, constraints)(me, ob)
+        }
     }
 
-    pub fn aabb(&self) -> Aabb {
+    pub fn visible_aabb(&self) -> Aabb {
+        let xform = self.transform.get().global_xform();
+
+        let corners = self
+            .local_aabb()
+            .corners()
+            .map(|corner| xform.transform_point2(corner));
+
+        Aabb::new_poly(&corners)
+    }
+
+    pub fn local_aabb(&self) -> Aabb {
         self.aabb
     }
 
-    pub fn set_aabb(&mut self, aabb: Aabb) {
+    pub fn set_local_aabb(&mut self, aabb: Aabb) {
         self.aabb = aabb;
     }
 
@@ -86,7 +103,7 @@ impl VirtualCamera {
         // apply in the same order in which they apply in code, which means that we're always pushing
         // matrices to the left of the active one.
 
-        let mat = Affine2::from_scale(self.aabb.size()) * mat; // Scale...
+        let mat = Affine2::from_scale(self.aabb.size() * Vec2::new(1., -1.)) * mat; // Scale...
         let mat = Affine2::from_translation(self.aabb.center()) * mat; // ...then translate!
 
         // Now that the camera is mapped to the AABB's bounds in local space, we can convert that

@@ -1,15 +1,92 @@
 use std::mem;
 
-use glam::IVec2;
+use glam::{IVec2, Vec2};
 use rustc_hash::FxHashMap;
 
-use crate::util::lang::{
-    entity::{Entity, StrongEntity},
-    obj::Obj,
-    vec::ensure_index,
+use crate::util::{
+    lang::{
+        entity::{Entity, StrongEntity},
+        obj::{Obj, StrongObj},
+        vec::ensure_index,
+    },
+    math::aabb::{Aabb, AabbI},
 };
 
-// === RawTileMap === //
+// === TileMap === //
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct LayerIndex(pub usize);
+
+#[derive(Debug, Default)]
+pub struct TileMap {
+    pub layers: Vec<TileLayer>,
+    pub layer_names: FxHashMap<String, usize>,
+    pub materials: StrongObj<MaterialRegistry>,
+}
+
+impl TileMap {
+    pub fn push_layer(&mut self, name: impl Into<String>, size: f32) -> LayerIndex {
+        let index = self.layers.len();
+        self.layers.push(TileLayer {
+            data: TileLayerData::default(),
+            size,
+        });
+        self.layer_names.insert(name.into(), index);
+        LayerIndex(index)
+    }
+
+    pub fn layer(&self, name: &str) -> LayerIndex {
+        LayerIndex(*self.layer_names.get(name).unwrap_or_else(|| {
+            panic!(
+                "failed to find layer with name {name:?}; layers: {:?}",
+                self.layer_names
+            )
+        }))
+    }
+
+    pub fn layers(&self) -> impl Iterator<Item = LayerIndex> {
+        (0..self.layers.len()).map(LayerIndex)
+    }
+
+    pub fn get(&mut self, layer: LayerIndex, pos: IVec2) -> MaterialInfo {
+        self.materials.get().get(self.layers[layer.0].data.get(pos))
+    }
+
+    pub fn set(&mut self, layer: LayerIndex, pos: IVec2, info: MaterialInfo) {
+        self.layers[layer.0].data.set(pos, info.id);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TileLayer {
+    pub data: TileLayerData,
+    pub size: f32,
+}
+
+impl TileLayer {
+    pub fn actor_to_tile(&self, Vec2 { x, y }: Vec2) -> IVec2 {
+        IVec2::new(
+            x.div_euclid(self.size).floor() as i32,
+            y.div_euclid(self.size).floor() as i32,
+        )
+    }
+
+    pub fn actor_aabb_to_tile(&self, aabb: Aabb) -> AabbI {
+        AabbI {
+            min: self.actor_to_tile(aabb.min),
+            max: self.actor_to_tile(aabb.max),
+        }
+    }
+
+    pub fn tile_to_actor_rect(&self, IVec2 { x, y }: IVec2) -> Aabb {
+        Aabb::new_sized(
+            Vec2::new(x as f32, y as f32) * self.size,
+            Vec2::splat(self.size),
+        )
+    }
+}
+
+// === TileLayerData === //
 
 const CHUNK_EDGE: i32 = 16;
 const CHUNK_AREA: i32 = CHUNK_EDGE * CHUNK_EDGE;

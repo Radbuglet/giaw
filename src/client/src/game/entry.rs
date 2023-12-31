@@ -2,19 +2,22 @@ use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
         collider::ColliderManager,
+        tile::TileMap,
         transform::Transform,
     },
     util::lang::{entity::StrongEntity, obj::Obj},
 };
-use macroquad::{
-    camera::{pop_camera_state, push_camera_state, set_camera},
-    math::Vec2,
-    window::{screen_height, screen_width},
-};
+use macroquad::{color::GREEN, math::IVec2};
 
 use crate::engine::scene::RenderHandler;
 
-use super::{actors::player::create_player, services::camera::CameraManager};
+use super::{
+    actors::player::create_player,
+    services::{
+        camera::CameraManager,
+        render::{TileVisualDescriptor, WorldRenderer},
+    },
+};
 
 pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
     let scene = StrongEntity::new()
@@ -23,6 +26,26 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(ActorManager::default())
         .with(ColliderManager::default())
         .with(CameraManager::default())
+        .with_cyclic(|_, _| {
+            let mut map = TileMap::default();
+            let layer = map.push_layer("under_player", 10.);
+            let placeholder;
+
+            {
+                let mut materials = map.materials.get_mut();
+                materials.register("air", StrongEntity::new().with("air descriptor"));
+                placeholder = materials.register(
+                    "placeholder",
+                    StrongEntity::new()
+                        .with("placeholder descriptor")
+                        .with(TileVisualDescriptor { color: GREEN }),
+                );
+            }
+
+            map.set(layer, IVec2::ZERO, placeholder);
+            map
+        })
+        .with_cyclic(WorldRenderer::new())
         .with_cyclic(|me, _| {
             UpdateHandler::new(move || {
                 let actor_mgr = me.get::<ActorManager>();
@@ -36,21 +59,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         })
         .with_cyclic(|me, _| {
             RenderHandler::new(move || {
-                push_camera_state();
-                if let Some(camera) = me
-                    .get_mut::<CameraManager>()
-                    .camera_snapshot(Vec2::new(screen_width(), screen_height()))
-                {
-                    set_camera(&camera);
-                } else {
-                    eprintln!("No camera >:(");
-                }
-
-                cbit::cbit!(for actor in me.get::<ActorManager>().iter_actors() {
-                    actor.get::<RenderHandler>().call();
-                });
-
-                pop_camera_state();
+                me.get::<WorldRenderer>().render();
             })
         })
         .with_cyclic(|me, _| {

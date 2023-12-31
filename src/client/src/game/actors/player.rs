@@ -4,16 +4,19 @@ use giaw_shared::{
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
             collider::Collider,
-            transform::{EntityExt, Transform},
+            transform::Transform,
         },
     },
-    util::lang::{entity::Entity, obj::Obj},
+    util::{
+        lang::{entity::Entity, obj::Obj},
+        math::aabb::Aabb,
+    },
 };
 use macroquad::{color::RED, math::Vec2, shapes::draw_circle};
 
 use crate::{
     engine::scene::RenderHandler,
-    game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
+    game::services::camera::{VirtualCamera, VirtualCameraConstraints},
 };
 
 pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) -> Entity {
@@ -23,14 +26,11 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         .with_cyclic(Transform::new(parent))
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(2.)))
         .with_cyclic(PlayerState::new())
-        .with_cyclic::<VirtualCamera>(|me, ob| {
-            me.deep_obj::<CameraManager>().get_mut().push(ob.clone());
-            let camera = VirtualCamera::new_constrained(
-                VirtualCameraConstraints::default().keep_visible_area(Vec2::splat(50.)),
-            );
-
-            camera(me, ob)
-        })
+        .with_cyclic(VirtualCamera::new_attached(
+            Aabb::ZERO,
+            VirtualCameraConstraints::default().keep_visible_area(Vec2::splat(100.)),
+        ))
+        // Handlers
         .with_cyclic(|me, _| {
             let player = me.obj::<PlayerState>();
             UpdateHandler::new(move || {

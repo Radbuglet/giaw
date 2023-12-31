@@ -28,6 +28,17 @@ impl Aabb {
         Self::new_sized(Vec2::new(x, y), Vec2::new(w, h))
     }
 
+    pub fn new_poly(poly: &[Vec2]) -> Self {
+        let min = poly.iter().copied().reduce(Vec2::min).unwrap();
+        let max = poly.iter().copied().reduce(Vec2::max).unwrap();
+
+        Self { min, max }
+    }
+
+    pub fn point_at(&self, percent: Vec2) -> Vec2 {
+        self.min + self.size() * percent
+    }
+
     pub fn new_centered(center: Vec2, size: Vec2) -> Self {
         let half_size = size / 2.0;
         Self {
@@ -126,6 +137,15 @@ impl Aabb {
 
     pub fn is_nan(self) -> bool {
         self.min.is_nan() || self.max.is_nan()
+    }
+
+    pub fn corners(&self) -> [Vec2; 4] {
+        [
+            self.point_at(Vec2::new(0., 0.)),
+            self.point_at(Vec2::new(1., 0.)),
+            self.point_at(Vec2::new(1., 1.)),
+            self.point_at(Vec2::new(0., 1.)),
+        ]
     }
 }
 
