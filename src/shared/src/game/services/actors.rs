@@ -5,21 +5,21 @@ use rustc_hash::FxHashSet;
 
 use crate::{
     delegate,
-    util::lang::entity::{Entity, OwnedEntity},
+    util::lang::entity::{Entity, StrongEntity},
 };
 
 use super::transform::Transform;
 
 #[derive(Debug, Default)]
 pub struct ActorManager {
-    actors: RefCell<FxHashSet<OwnedEntity>>,
-    queued_spawns: RefCell<Vec<OwnedEntity>>,
+    actors: RefCell<FxHashSet<StrongEntity>>,
+    queued_spawns: RefCell<Vec<StrongEntity>>,
     queued_despawns: RefCell<FxHashSet<Entity>>,
 }
 
 impl ActorManager {
     pub fn spawn(&self) -> Entity {
-        let (actor, actor_ref) = OwnedEntity::new().split_guard();
+        let (actor, actor_ref) = StrongEntity::new().split_guard();
 
         if let Ok(mut actors) = self.actors.try_borrow_mut() {
             actors.insert(actor);

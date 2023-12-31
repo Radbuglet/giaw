@@ -141,6 +141,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-where"
+version = "1.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62d671cc41a825ebabc75757b62d3d168c577f9149b2d49ece1dad1f72119d25"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "extend"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -196,6 +207,7 @@ name = "giaw-shared"
 version = "0.1.0"
 dependencies = [
  "autoken",
+ "derive-where",
  "extend",
  "glam",
  "hashbrown 0.14.3",

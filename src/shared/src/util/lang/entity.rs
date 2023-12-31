@@ -319,7 +319,7 @@ impl<T: 'static> Storage<T> {
                 )
             });
 
-            *slot = slot.extend(ComponentType::of::<T>());
+            slot.components = slot.components.extend(ComponentType::of::<T>());
         });
 
         self.insert_untracked(entity, value)
@@ -348,7 +348,7 @@ impl<T: 'static> Storage<T> {
                     return;
                 };
 
-                *slot = slot.de_extend(ComponentType::of::<T>());
+                slot.components = slot.components.de_extend(ComponentType::of::<T>());
             });
 
             Some(removed)
@@ -443,7 +443,12 @@ impl<T: 'static> Storage<T> {
 // === Entity === //
 
 thread_local! {
-    static ALIVE: RefCell<NopHashMap<Entity, &'static ComponentList>> = Default::default();
+    static ALIVE: RefCell<NopHashMap<Entity, EntityInfo>> = Default::default();
+}
+
+struct EntityInfo {
+    components: &'static ComponentList,
+    rc: usize,
 }
 
 static DEBUG_ENTITY_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -452,33 +457,6 @@ static DEBUG_ENTITY_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct Entity(NonZeroU64);
 
 impl Entity {
-    pub fn new_unmanaged() -> Self {
-        // Increment the total entity counter
-        DEBUG_ENTITY_COUNTER.fetch_add(1, Ordering::Relaxed);
-
-        // Allocate a slot
-        thread_local! {
-            static ID_GEN: Cell<NonZeroU64> = const { Cell::new(match NonZeroU64::new(1) {
-                Some(v) => v,
-                None => unreachable!(),
-            }) };
-        }
-
-        let me = Self(ID_GEN.with(|v| {
-            // N.B. `xorshift`, like all other well-constructed LSFRs, produces a full cycle of non-zero
-            // values before repeating itself. Thus, this is an effective way to generate random but
-            // unique IDs without using additional storage.
-            let state = xorshift64(v.get());
-            v.set(state);
-            state
-        }));
-
-        // Register our slot in the alive set
-        ALIVE.with(|slots| slots.borrow_mut().insert(me, ComponentList::empty()));
-
-        me
-    }
-
     pub fn with<T: 'static>(self, comp: T) -> Self {
         self.insert(StrongObj::new(comp));
         self
@@ -555,21 +533,17 @@ impl Entity {
         storage::<T>().has(self)
     }
 
-    pub fn is_alive(self) -> bool {
-        ALIVE.with(|slots| slots.borrow().contains_key(&self))
+    pub fn upgrade(self) -> StrongEntity {
+        ALIVE.with(|alive| {
+            let mut slots = alive.borrow_mut();
+            slots.get_mut(&self).unwrap().rc += 1;
+        });
+
+        StrongEntity(self)
     }
 
-    pub fn destroy(self) {
-        ALIVE.with(|slots| {
-            let comp_list = slots.borrow_mut().remove(&self).unwrap_or_else(|| {
-                panic!(
-                    "attempted to destroy the already-dead or cross-threaded {:?}.",
-                    self
-                )
-            });
-
-            comp_list.run_dtors(self);
-        });
+    pub fn is_alive(self) -> bool {
+        ALIVE.with(|slots| slots.borrow().contains_key(&self))
     }
 }
 
@@ -587,7 +561,9 @@ impl fmt::Debug for Entity {
             #[derive(Debug)]
             struct Id(NonZeroU64);
 
-            if let Some(comp_list) = alive.borrow().get(self).copied() {
+            let comp_list = alive.borrow().get(self).map(|v| v.components);
+
+            if let Some(comp_list) = comp_list {
                 let mut builder = f.debug_tuple("Entity");
 
                 let label_loaner = ImmutableBorrow::new();
@@ -614,22 +590,59 @@ impl fmt::Debug for Entity {
     }
 }
 
-// === OwnedEntity === //
+// === StrongEntity === //
 
 #[derive(Debug, Hash, Eq, PartialEq)]
-pub struct OwnedEntity(Entity);
+pub struct StrongEntity(Entity);
 
-impl Default for OwnedEntity {
+impl Default for StrongEntity {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OwnedEntity {
+impl Clone for StrongEntity {
+    fn clone(&self) -> Self {
+        self.0.upgrade()
+    }
+}
+
+impl StrongEntity {
     // === Lifecycle === //
 
     pub fn new() -> Self {
-        Self(Entity::new_unmanaged())
+        // Increment the total entity counter
+        DEBUG_ENTITY_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+        // Allocate a slot
+        thread_local! {
+            static ID_GEN: Cell<NonZeroU64> = const { Cell::new(match NonZeroU64::new(1) {
+                Some(v) => v,
+                None => unreachable!(),
+            }) };
+        }
+
+        let me = Entity(ID_GEN.with(|v| {
+            // N.B. `xorshift`, like all other well-constructed LSFRs, produces a full cycle of non-zero
+            // values before repeating itself. Thus, this is an effective way to generate random but
+            // unique IDs without using additional storage.
+            let state = xorshift64(v.get());
+            v.set(state);
+            state
+        }));
+
+        // Register our slot in the alive set
+        ALIVE.with(|slots| {
+            slots.borrow_mut().insert(
+                me,
+                EntityInfo {
+                    components: ComponentList::empty(),
+                    rc: 1,
+                },
+            )
+        });
+
+        StrongEntity(me)
     }
 
     pub fn entity(&self) -> Entity {
@@ -729,21 +742,30 @@ impl OwnedEntity {
     pub fn is_alive(&self) -> bool {
         self.0.is_alive()
     }
-
-    pub fn destroy(self) {
-        drop(self);
-    }
 }
 
-impl Borrow<Entity> for OwnedEntity {
+impl Borrow<Entity> for StrongEntity {
     fn borrow(&self) -> &Entity {
         &self.0
     }
 }
 
-impl Drop for OwnedEntity {
+impl Drop for StrongEntity {
     fn drop(&mut self) {
-        self.0.destroy();
+        ALIVE.with(|slots| {
+            let mut slots = slots.borrow_mut();
+            let hashbrown::hash_map::Entry::Occupied(mut entry) = slots.entry(self.0) else {
+                unreachable!()
+            };
+
+            let entry_info = entry.get_mut();
+            entry_info.rc -= 1;
+            if entry_info.rc == 0 {
+                let entry_info = entry.remove();
+                drop(slots);
+                entry_info.components.run_dtors(self.0);
+            }
+        });
     }
 }
 

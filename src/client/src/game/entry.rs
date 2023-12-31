@@ -4,7 +4,7 @@ use giaw_shared::{
         collider::ColliderManager,
         transform::Transform,
     },
-    util::lang::{entity::OwnedEntity, obj::Obj},
+    util::lang::{entity::StrongEntity, obj::Obj},
 };
 use macroquad::{
     camera::{pop_camera_state, push_camera_state, set_camera},
@@ -16,8 +16,8 @@ use crate::engine::scene::RenderHandler;
 
 use super::{actors::player::create_player, services::camera::CameraManager};
 
-pub fn create_game(parent: Option<Obj<Transform>>) -> OwnedEntity {
-    let scene = OwnedEntity::new()
+pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
+    let scene = StrongEntity::new()
         .with_debug_label("game scene root")
         .with_cyclic(Transform::new(parent))
         .with(ActorManager::default())
