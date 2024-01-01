@@ -10,11 +10,7 @@ use giaw_shared::{
         math::aabb::{Aabb, AabbI},
     },
 };
-use macroquad::{
-    color::{GREEN, SKYBLUE},
-    math::IVec2,
-    window::clear_background,
-};
+use macroquad::{color::GREEN, math::IVec2};
 
 use crate::engine::scene::RenderHandler;
 
@@ -73,8 +69,6 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         })
         .with_cyclic(|me, _| {
             RenderHandler::new(move || {
-                clear_background(SKYBLUE);
-
                 me.get::<WorldRenderer>().render();
             })
         })

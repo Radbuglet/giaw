@@ -32,12 +32,14 @@ impl CameraManager {
         self.stack.last()
     }
 
-    pub fn camera_snapshot(&mut self, viewport_size: Vec2) -> Option<VirtualCameraSnapshot> {
-        self.camera().map(|c| {
-            let mut c = c.get_mut();
-            c.constrain(viewport_size);
-            c.snapshot()
-        })
+    pub fn project(&mut self, pos: Vec2) -> Vec2 {
+        self.camera()
+            .map_or(pos, |camera| camera.get().project(pos))
+    }
+
+    pub fn de_project(&mut self, pos: Vec2) -> Vec2 {
+        self.camera()
+            .map_or(pos, |camera| camera.get().de_project(pos))
     }
 }
 
@@ -46,6 +48,13 @@ pub struct VirtualCamera {
     transform: Obj<Transform>,
     aabb: Aabb,
     constraints: VirtualCameraConstraints,
+
+    // Caches
+    last_viewport_size: Vec2,
+    screen_to_world_ogl: Affine2,
+    world_to_screen_ogl: Affine2,
+    screen_to_world_px: Affine2,
+    world_to_screen_px: Affine2,
 }
 
 impl VirtualCamera {
@@ -54,6 +63,11 @@ impl VirtualCamera {
             transform: me.obj(),
             aabb,
             constraints,
+            last_viewport_size: Vec2::ONE,
+            screen_to_world_ogl: Affine2::IDENTITY,
+            world_to_screen_ogl: Affine2::IDENTITY,
+            screen_to_world_px: Affine2::IDENTITY,
+            world_to_screen_px: Affine2::IDENTITY,
         }
     }
 
@@ -86,38 +100,76 @@ impl VirtualCamera {
         self.aabb = aabb;
     }
 
-    pub fn constrain(&mut self, viewport_size: Vec2) {
+    pub fn update(&mut self, viewport_size: Vec2) {
+        self.last_viewport_size = viewport_size;
+
+        // Apply constraints
         if let Some(kept_area) = self.constraints.keep_area {
             let size = viewport_size;
             let size = size * (kept_area / (size.x * size.y)).sqrt();
             self.aabb = Aabb::new_centered(self.aabb.center(), size);
         }
+
+        // Update the matrices
+        {
+            // We're trying to construct a matrix from OpenGL screen coordinates to world coordinates.
+            let mat = Affine2::IDENTITY;
+
+            // First, scale the OpenGL screen box into the local-space AABB.
+            // Recall that matrix multiplication is right-associative in Glam. We want the matrices to
+            // apply in the same order in which they apply in code, which means that we're always pushing
+            // matrices to the left of the active one.
+
+            // Scale... (N.B. we use a y-down system)
+            let mat = Affine2::from_scale(self.aabb.size() * Vec2::new(1., -1.) / 2.) * mat;
+
+            // ...then translate!
+            let mat = Affine2::from_translation(self.aabb.center()) * mat;
+
+            // Now that the camera is mapped to the AABB's bounds in local space, we can convert that
+            // into world-space coordinates.
+            let mat = self.transform.get().global_xform() * mat;
+
+            // We now have a affine transformation from OpenGL coordinates to world coordinates and
+            // its inverse.
+            self.screen_to_world_ogl = mat;
+            self.world_to_screen_ogl = mat.inverse();
+
+            // Finally, let's derive a pixel-relative version of it.
+            self.world_to_screen_px = Affine2::from_translation(viewport_size / 2.)
+                * Affine2::from_scale(viewport_size * Vec2::new(0.5, -0.5))
+                * self.world_to_screen_ogl;
+
+            self.screen_to_world_px = self.world_to_screen_px.inverse();
+        }
+    }
+
+    pub fn screen_to_world_ogl(&self) -> Affine2 {
+        self.screen_to_world_ogl
+    }
+
+    pub fn world_to_screen_ogl(&self) -> Affine2 {
+        self.world_to_screen_ogl
+    }
+
+    pub fn screen_to_world_px(&self) -> Affine2 {
+        self.screen_to_world_px
+    }
+
+    pub fn world_to_screen_px(&self) -> Affine2 {
+        self.world_to_screen_px
+    }
+
+    pub fn project(&self, pos: Vec2) -> Vec2 {
+        self.screen_to_world_px().transform_point2(pos)
+    }
+
+    pub fn de_project(&self, pos: Vec2) -> Vec2 {
+        self.world_to_screen_px().transform_point2(pos)
     }
 
     pub fn snapshot(&self) -> VirtualCameraSnapshot {
-        // We're trying to construct a matrix from OpenGL screen coordinates to world coordinates.
-        let mat = Affine2::IDENTITY;
-
-        // First, scale the OpenGL screen box into the local-space AABB.
-        // Recall that matrix multiplication is right-associative in Glam. We want the matrices to
-        // apply in the same order in which they apply in code, which means that we're always pushing
-        // matrices to the left of the active one.
-
-        // Scale... (N.B. we use a y-down system)
-        let mat = Affine2::from_scale(self.aabb.size() * Vec2::new(1., -1.) / 2.) * mat;
-
-        // ...then translate!
-        let mat = Affine2::from_translation(self.aabb.center()) * mat;
-
-        // Now that the camera is mapped to the AABB's bounds in local space, we can convert that
-        // into world-space coordinates.
-        let mat = self.transform.get().global_xform() * mat;
-
-        // We now have a affine transformation from OpenGL coordinates to world coordinates. We need
-        // to invert that.
-        let mat = mat.inverse();
-
-        // Finally, we need to extend this 2D affine transformation into a 3D one.
+        let mat = self.world_to_screen_ogl;
         let mat = Mat4::from_cols(
             mat.x_axis.extend(0.).extend(0.),
             mat.y_axis.extend(0.).extend(0.),

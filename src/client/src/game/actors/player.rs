@@ -14,16 +14,16 @@ use giaw_shared::{
 };
 use macroquad::{
     color::{BLUE, RED},
-    input::is_key_down,
+    input::{is_key_down, is_mouse_button_down, mouse_position},
     math::Vec2,
-    miniquad::KeyCode,
+    miniquad::{KeyCode, MouseButton},
     shapes::{draw_circle, draw_rectangle},
     time::get_frame_time,
 };
 
 use crate::{
     engine::scene::RenderHandler,
-    game::services::camera::{VirtualCamera, VirtualCameraConstraints},
+    game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
 };
 
 pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) -> Entity {
@@ -40,40 +40,66 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         // Handlers
         .with_cyclic(|me, _| {
             let player = me.obj::<PlayerState>();
+            let camera_mgr = me.deep_obj::<CameraManager>();
 
             UpdateHandler::new(move || {
                 let dt = get_frame_time();
                 let mut player = player.get_mut();
-                let mut heading = 0.;
-                let magnitude = 5.;
 
-                if is_key_down(KeyCode::A) {
-                    heading = -magnitude;
+                // Handle building
+                {
+                    let mouse_pos = camera_mgr.get_mut().project(mouse_position().into());
+                    let mut tile_map = me.deep_obj::<TileMap>().get_mut();
+                    let layer = tile_map.layer("under_player");
+                    let tile_pos = tile_map.layers[layer.0].actor_to_tile(mouse_pos);
+
+                    if is_mouse_button_down(MouseButton::Right) {
+                        let material = tile_map.materials.get().get_by_name("placeholder");
+                        tile_map.set(layer, tile_pos, material);
+                    }
+
+                    if is_mouse_button_down(MouseButton::Left) {
+                        let material = tile_map.materials.get().get_by_name("air");
+                        tile_map.set(layer, tile_pos, material);
+                    }
                 }
 
-                if is_key_down(KeyCode::D) {
-                    heading = magnitude;
+                // Handle motion
+                {
+                    let mut heading = 0.;
+                    let magnitude = 5.;
+
+                    if is_key_down(KeyCode::A) {
+                        heading = -magnitude;
+                    }
+
+                    if is_key_down(KeyCode::D) {
+                        heading = magnitude;
+                    }
+
+                    player.velocity.x = (player.velocity.x + heading) / 2.;
+
+                    if is_key_down(KeyCode::Space) && player.is_on_ground() {
+                        player.velocity.y = -10.;
+                    }
+
+                    player.update(dt);
                 }
-
-                player.velocity.x = (player.velocity.x + heading) / 2.;
-
-                if is_key_down(KeyCode::Space) && player.is_on_ground() {
-                    player.velocity.y = -10.;
-                }
-
-                player.update(dt);
             })
         })
         .with_cyclic(|me, _| {
             let xform = me.obj::<Transform>();
+            let camera_mgr = me.deep_obj::<CameraManager>();
+
             RenderHandler::new(move || {
                 let xform = xform.get();
                 let pos = xform.global_pos();
 
                 {
+                    let mouse_pos = camera_mgr.get_mut().project(mouse_position().into());
                     let tile_map = me.deep_obj::<TileMap>().get();
                     let layer = &tile_map.layers[tile_map.layer("under_player").0];
-                    let aabb = layer.tile_to_actor_rect(layer.actor_to_tile(xform.global_pos()));
+                    let aabb = layer.tile_to_actor_rect(layer.actor_to_tile(mouse_pos));
 
                     draw_rectangle(aabb.x(), aabb.y(), aabb.w(), aabb.h(), BLUE);
                 }

@@ -10,9 +10,10 @@ use giaw_shared::{
 };
 use macroquad::{
     camera::{pop_camera_state, push_camera_state, set_camera},
-    color::Color,
+    color::{Color, SKYBLUE},
     miniquad::window::screen_size,
     shapes::draw_rectangle,
+    window::clear_background,
 };
 
 use crate::engine::scene::RenderHandler;
@@ -45,6 +46,10 @@ impl WorldRenderer {
     }
 
     pub fn render(&self) {
+        // Render background
+        clear_background(SKYBLUE);
+
+        // Bind camera
         let visible_aabb;
         {
             let Some(active_camera) = self.camera_mgr.get_mut().camera().cloned() else {
@@ -53,7 +58,7 @@ impl WorldRenderer {
 
             let mut active_camera = active_camera.get_mut();
             push_camera_state();
-            active_camera.constrain(screen_size().into());
+            active_camera.update(screen_size().into());
             visible_aabb = active_camera.visible_aabb();
             set_camera(&active_camera.snapshot());
         }
