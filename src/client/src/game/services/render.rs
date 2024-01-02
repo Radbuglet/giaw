@@ -64,12 +64,13 @@ impl WorldRenderer {
         }
 
         // Draw tiles
-        let layers = self.tile_map.get().layers();
-        for layer in layers {
-            {
-                let mut tile_map = self.tile_map.get_mut();
-                let mut tile_infos = self.mat_cache.borrow_mut();
-                let visible_aabb = tile_map.layers[layer.0].actor_aabb_to_tile(visible_aabb);
+        {
+            let mut tile_map = self.tile_map.get_mut();
+            let mut tile_infos = self.mat_cache.borrow_mut();
+
+            for layer in tile_map.layers() {
+                let layer_config = tile_map.layer_config(layer);
+                let visible_aabb = layer_config.actor_aabb_to_tile(visible_aabb);
 
                 for pos in visible_aabb.inclusive().iter() {
                     let tile = tile_map.get(layer, pos);
@@ -77,7 +78,7 @@ impl WorldRenderer {
                         continue;
                     }
 
-                    let tile_aabb = tile_map.layers[layer.0].tile_to_actor_rect(pos);
+                    let tile_aabb = layer_config.tile_to_actor_rect(pos);
                     let color = tile_infos.lookup(tile).get().color;
 
                     draw_rectangle(

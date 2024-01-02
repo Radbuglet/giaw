@@ -100,6 +100,14 @@ impl VirtualCamera {
         self.aabb = aabb;
     }
 
+	pub fn constraints(&self) -> &VirtualCameraConstraints {
+		&self.constraints
+	}
+
+	pub fn constraints_mut(&mut self) -> &mut VirtualCameraConstraints {
+		&mut self.constraints
+	}
+
     pub fn update(&mut self, viewport_size: Vec2) {
         self.last_viewport_size = viewport_size;
 

@@ -70,13 +70,13 @@ impl KinematicManager {
 
             // For each layer...
             for layer in layers {
-                let tile_check_aabb = tile_map.layers[layer.0].actor_aabb_to_tile(check_aabb);
+                let layer_config = tile_map.layer_config(layer);
+                let tile_check_aabb = layer_config.actor_aabb_to_tile(check_aabb);
 
                 // For each visible tile...
                 for pos in tile_check_aabb.inclusive().iter() {
-                    let layer_info = &tile_map.layers[layer.0];
-                    let offset = layer_info.tile_to_actor_rect(pos).min;
-                    let size = layer_info.size;
+                    let offset = layer_config.tile_to_actor_rect(pos).min;
+                    let size = layer_config.size;
 
                     let material = tile_map.get(layer, pos);
                     if material.id == 0 {

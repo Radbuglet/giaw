@@ -2,7 +2,7 @@ use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
         kinematic::{KinematicManager, TileColliderDescriptor},
-        tile::TileMap,
+        tile::{TileMap, TileLayerConfig},
         transform::{ColliderManager, Transform},
     },
     util::{
@@ -31,7 +31,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(CameraManager::default())
         .with_cyclic(|_, _| {
             let mut map = TileMap::default();
-            let layer = map.push_layer("under_player", 0.5);
+            let layer = map.push_layer("under_player", TileLayerConfig::from_size(0.5));
             let placeholder;
 
             {

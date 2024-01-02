@@ -9,7 +9,7 @@ use giaw_shared::{
     },
     util::{
         lang::{entity::Entity, obj::Obj},
-        math::aabb::Aabb,
+        math::{aabb::Aabb, scalar::lerp_f32},
     },
 };
 use macroquad::{
@@ -26,6 +26,11 @@ use crate::{
     game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
 };
 
+#[derive(Debug, Default)]
+pub struct PlayerClientState {
+    last_build_pos: Option<Vec2>,
+}
+
 pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) -> Entity {
     actors
         .spawn()
@@ -33,6 +38,7 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         .with_cyclic(Transform::new(parent))
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(0.6)))
         .with_cyclic(PlayerState::new())
+        .with(PlayerClientState::default())
         .with_cyclic(VirtualCamera::new_attached(
             Aabb::ZERO,
             VirtualCameraConstraints::default().keep_visible_area(Vec2::splat(10.)),
@@ -40,22 +46,28 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         // Handlers
         .with_cyclic(|me, _| {
             let player = me.obj::<PlayerState>();
+            let player_client = me.obj::<PlayerClientState>();
             let camera_mgr = me.deep_obj::<CameraManager>();
+            let tile_map = me.deep_obj::<TileMap>();
 
             UpdateHandler::new(move || {
                 let dt = get_frame_time();
                 let mut player = player.get_mut();
+                let mut player_client = player_client.get_mut();
 
                 // Handle building
                 {
+                    let mut tile_map = tile_map.get_mut();
                     let mouse_pos = camera_mgr.get_mut().project(mouse_position().into());
-                    let mut tile_map = me.deep_obj::<TileMap>().get_mut();
                     let layer = tile_map.layer("under_player");
-                    let tile_pos = tile_map.layers[layer.0].actor_to_tile(mouse_pos);
+                    let tile_pos = tile_map.actor_to_tile(layer, mouse_pos);
 
                     if is_mouse_button_down(MouseButton::Right) {
                         let material = tile_map.materials.get().get_by_name("placeholder");
                         tile_map.set(layer, tile_pos, material);
+                        player_client.last_build_pos = Some(mouse_pos);
+                    } else {
+                        player_client.last_build_pos = None;
                     }
 
                     if is_mouse_button_down(MouseButton::Left) {
@@ -90,20 +102,35 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         .with_cyclic(|me, _| {
             let xform = me.obj::<Transform>();
             let camera_mgr = me.deep_obj::<CameraManager>();
+            let camera = me.obj::<VirtualCamera>();
 
             RenderHandler::new(move || {
                 let xform = xform.get();
                 let pos = xform.global_pos();
 
+                // FOV change
+                {
+                    let mut camera = camera.get_mut();
+                    let camera = camera.constraints_mut();
+                    camera.keep_area = Some(lerp_f32(
+                        camera.keep_area.unwrap(),
+                        100. + me.get::<PlayerState>().velocity.x.abs() * 10.,
+                        0.05,
+                    ));
+                }
+
+                // Mouse highlight
                 {
                     let mouse_pos = camera_mgr.get_mut().project(mouse_position().into());
                     let tile_map = me.deep_obj::<TileMap>().get();
-                    let layer = &tile_map.layers[tile_map.layer("under_player").0];
-                    let aabb = layer.tile_to_actor_rect(layer.actor_to_tile(mouse_pos));
+                    let layer = tile_map.layer("under_player");
+                    let aabb = tile_map
+                        .tile_to_actor_rect(layer, tile_map.actor_to_tile(layer, mouse_pos));
 
                     draw_rectangle(aabb.x(), aabb.y(), aabb.w(), aabb.h(), BLUE);
                 }
 
+                // Character rendering
                 draw_circle(pos.x, pos.y, 0.3, RED);
             })
         })

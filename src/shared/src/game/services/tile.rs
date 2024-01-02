@@ -25,11 +25,11 @@ pub struct TileMap {
 }
 
 impl TileMap {
-    pub fn push_layer(&mut self, name: impl Into<String>, size: f32) -> LayerIndex {
+    pub fn push_layer(&mut self, name: impl Into<String>, config: TileLayerConfig) -> LayerIndex {
         let index = self.layers.len();
         self.layers.push(TileLayer {
             data: TileLayerData::default(),
-            size,
+            config,
         });
         self.layer_names.insert(name.into(), index);
         LayerIndex(index)
@@ -55,15 +55,44 @@ impl TileMap {
     pub fn set(&mut self, layer: LayerIndex, pos: IVec2, info: MaterialInfo) {
         self.layers[layer.0].data.set(pos, info.id);
     }
+
+    pub fn layer_config(&self, layer: LayerIndex) -> TileLayerConfig {
+        self.layers[layer.0].config
+    }
+
+    pub fn actor_to_tile(&self, layer: LayerIndex, pos: Vec2) -> IVec2 {
+        self.layer_config(layer).actor_to_tile(pos)
+    }
+
+    pub fn actor_aabb_to_tile(&self, layer: LayerIndex, aabb: Aabb) -> AabbI {
+        self.layer_config(layer).actor_aabb_to_tile(aabb)
+    }
+
+    pub fn tile_to_actor_rect(&self, layer: LayerIndex, pos: IVec2) -> Aabb {
+        self.layer_config(layer).tile_to_actor_rect(pos)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct TileLayer {
     pub data: TileLayerData,
-    pub size: f32,
+    pub config: TileLayerConfig,
 }
 
-impl TileLayer {
+#[derive(Debug, Copy, Clone)]
+pub struct TileLayerConfig {
+    pub size: f32,
+    pub offset: Vec2,
+}
+
+impl TileLayerConfig {
+    pub fn from_size(size: f32) -> Self {
+        Self {
+            size,
+            offset: Vec2::ZERO,
+        }
+    }
+
     pub fn actor_to_tile(&self, Vec2 { x, y }: Vec2) -> IVec2 {
         IVec2::new(
             x.div_euclid(self.size).floor() as i32,
