@@ -37,13 +37,18 @@ impl PlayerState {
             max: Vec2::new(aabb.max.x, aabb.max.y + 0.01),
         };
 
-        cbit::cbit!(for collider in kinematic.iter_colliders_in(aabb) {
-            if filter_descendants(Some(&self.transform))(collider) {
-                return true;
-            }
-        });
+        kinematic.has_colliders_in(aabb, filter_descendants(Some(&self.transform)))
+    }
 
-        false
+    pub fn is_on_ceiling(&self) -> bool {
+        let kinematic = self.kinematic.get();
+        let aabb = self.collider.get().global_aabb();
+        let aabb = Aabb {
+            min: Vec2::new(aabb.min.x, aabb.min.y - 0.02),
+            max: Vec2::new(aabb.max.x, aabb.min.y),
+        };
+
+        kinematic.has_colliders_in(aabb, filter_descendants(Some(&self.transform)))
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -52,6 +57,14 @@ impl PlayerState {
         let kinematic = self.kinematic.get();
 
         self.velocity += Vec2::new(0., 18.) * dt;
+
+        if self.is_on_ground() && self.velocity.y > 0. {
+            self.velocity.y = 0.;
+        }
+
+        if self.is_on_ceiling() && self.velocity.y < 0. {
+            self.velocity.y = 0.;
+        }
 
         xform.translate_local_pos(kinematic.move_by(
             aabb,

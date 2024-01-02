@@ -116,6 +116,20 @@ impl KinematicManager {
         ControlFlow::Continue(())
     }
 
+    pub fn has_colliders_in(
+        &self,
+        check_aabb: Aabb,
+        mut filter: impl FnMut(AnyCollision) -> bool,
+    ) -> bool {
+        cbit::cbit!(for collider in self.iter_colliders_in(check_aabb) {
+            if filter(collider) {
+                return true;
+            }
+        });
+
+        false
+    }
+
     pub fn move_by(
         &self,
         aabb: Aabb,
