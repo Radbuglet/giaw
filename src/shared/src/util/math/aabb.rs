@@ -2,6 +2,10 @@ use std::iter;
 
 use glam::{IVec2, Vec2};
 
+use crate::util::math::glam::{AaLine, Axis2};
+
+use super::glam::{AaLineI, TileFace};
+
 #[derive(Debug, Copy, Clone)]
 pub struct Aabb {
     pub min: Vec2,
@@ -147,6 +151,29 @@ impl Aabb {
             self.point_at(Vec2::new(0., 1.)),
         ]
     }
+
+    pub fn edge_line(self, face: TileFace) -> AaLine {
+        use TileFace::*;
+
+        match face {
+            Left => AaLine {
+                axis: Axis2::X,
+                norm: self.min.x,
+            },
+            Right => AaLine {
+                axis: Axis2::X,
+                norm: self.max.x,
+            },
+            Top => AaLine {
+                axis: Axis2::Y,
+                norm: self.min.y,
+            },
+            Bottom => AaLine {
+                axis: Axis2::Y,
+                norm: self.max.y,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -201,7 +228,7 @@ impl AabbI {
         })
     }
 
-    pub fn size(&self) -> IVec2 {
+    pub fn size(self) -> IVec2 {
         self.max - self.min
     }
 
@@ -209,6 +236,29 @@ impl AabbI {
         Aabb {
             min: self.min.as_vec2(),
             max: self.max.as_vec2(),
+        }
+    }
+
+    pub fn edge_line(self, face: TileFace) -> AaLineI {
+        use TileFace::*;
+
+        match face {
+            Left => AaLineI {
+                axis: Axis2::X,
+                norm: self.min.x,
+            },
+            Right => AaLineI {
+                axis: Axis2::X,
+                norm: self.max.x,
+            },
+            Top => AaLineI {
+                axis: Axis2::Y,
+                norm: self.min.y,
+            },
+            Bottom => AaLineI {
+                axis: Axis2::Y,
+                norm: self.max.y,
+            },
         }
     }
 }

@@ -28,7 +28,8 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub struct PlayerClientState {
-    last_build_pos: Option<Vec2>,
+    last_build_pos: Vec2,
+    last_build_state: bool,
 }
 
 pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) -> Entity {
@@ -56,24 +57,47 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
                 let mut player_client = player_client.get_mut();
 
                 // Handle building
-                {
+                'build: {
                     let mut tile_map = tile_map.get_mut();
+
                     let mouse_pos = camera_mgr.get_mut().project(mouse_position().into());
                     let layer = tile_map.layer("under_player");
-                    let tile_pos = tile_map.actor_to_tile(layer, mouse_pos);
+                    let layer_config = tile_map.layer_config(layer);
 
-                    if is_mouse_button_down(MouseButton::Right) {
-                        let material = tile_map.materials.get().get_by_name("placeholder");
-                        tile_map.set(layer, tile_pos, material);
-                        player_client.last_build_pos = Some(mouse_pos);
+                    let placed_material = if is_mouse_button_down(MouseButton::Right) {
+                        tile_map.materials.get().get_by_name("placeholder")
+                    } else if is_mouse_button_down(MouseButton::Left) {
+                        tile_map.materials.get().get_by_name("air")
                     } else {
-                        player_client.last_build_pos = None;
+                        player_client.last_build_state = false;
+                        break 'build;
+                    };
+
+                    if player_client.last_build_state {
+                        let mut origin = player_client.last_build_pos;
+                        let mut length = (mouse_pos - player_client.last_build_pos).length();
+                        let delta = (mouse_pos - player_client.last_build_pos) / length;
+
+                        if !delta.is_nan() {
+                            while length > 0. {
+                                let step_size = length.min(layer_config.size);
+                                for isect in layer_config.step_ray(origin, delta * step_size) {
+                                    tile_map.set(layer, isect.entered_tile, placed_material);
+                                }
+                                length -= step_size;
+                                origin += delta * step_size;
+                            }
+                        }
                     }
 
-                    if is_mouse_button_down(MouseButton::Left) {
-                        let material = tile_map.materials.get().get_by_name("air");
-                        tile_map.set(layer, tile_pos, material);
-                    }
+                    tile_map.set(
+                        layer,
+                        layer_config.actor_to_tile(mouse_pos),
+                        placed_material,
+                    );
+
+                    player_client.last_build_state = true;
+                    player_client.last_build_pos = mouse_pos;
                 }
 
                 // Handle motion

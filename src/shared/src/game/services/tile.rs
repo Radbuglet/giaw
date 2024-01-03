@@ -2,6 +2,7 @@ use std::mem;
 
 use glam::{IVec2, Vec2};
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 
 use crate::util::{
     lang::{
@@ -9,7 +10,11 @@ use crate::util::{
         obj::{Obj, StrongObj},
         vec::ensure_index,
     },
-    math::aabb::{Aabb, AabbI},
+    math::{
+        aabb::{Aabb, AabbI},
+        glam::{AaLine, Axis2, Sign, TileFace, Vec2Ext},
+        scalar::ilerp_f32,
+    },
 };
 
 // === TileMap === //
@@ -93,10 +98,15 @@ impl TileLayerConfig {
         }
     }
 
+    pub fn actor_to_tile_axis(&self, axis: Axis2, value: f32) -> i32 {
+        let _ = axis;
+        value.div_euclid(self.size).floor() as i32
+    }
+
     pub fn actor_to_tile(&self, Vec2 { x, y }: Vec2) -> IVec2 {
         IVec2::new(
-            x.div_euclid(self.size).floor() as i32,
-            y.div_euclid(self.size).floor() as i32,
+            self.actor_to_tile_axis(Axis2::X, x),
+            self.actor_to_tile_axis(Axis2::Y, y),
         )
     }
 
@@ -113,6 +123,66 @@ impl TileLayerConfig {
             Vec2::splat(self.size),
         )
     }
+
+    pub fn tile_edge_line(&self, tile: IVec2, face: TileFace) -> AaLine {
+        self.tile_to_actor_rect(tile).edge_line(face)
+    }
+
+    pub fn step_ray(&self, origin: Vec2, delta: Vec2) -> SmallVec<[RayIntersection; 2]> {
+        let mut intersections = SmallVec::<[RayIntersection; 2]>::new();
+
+        // Collect all possible intersections
+        let origin_tile = self.actor_to_tile(origin);
+        let dest = origin + delta;
+
+        for axis in Axis2::iter() {
+            let origin_value = origin.get_axis(axis);
+            let delta_value = delta.get_axis(axis);
+            let delta_sign = Sign::of_biased(delta_value);
+            let dest_value = dest.get_axis(axis);
+
+            // Ensure that we crossed a block boundary
+            if self.actor_to_tile_axis(axis, origin_value)
+                == self.actor_to_tile_axis(axis, dest_value)
+            {
+                continue;
+            }
+
+            // If we did, add a ray intersection
+            let iface_value = self
+                .tile_edge_line(origin_tile, TileFace::compose(axis, delta_sign))
+                .norm;
+
+            let isect_pos = origin.lerp(delta, ilerp_f32(origin_value, dest_value, iface_value));
+
+            intersections.push(RayIntersection {
+                face: TileFace::compose(axis, delta_sign),
+                entered_tile: IVec2::ZERO,
+                dist: origin.distance(isect_pos),
+                isect_pos,
+            });
+        }
+
+        // Sort them by distance
+        intersections.sort_by(|a, b| a.dist.total_cmp(&b.dist));
+
+        // Update tile positions
+        let mut tile_pos = origin_tile;
+        for intersection in &mut intersections {
+            tile_pos += intersection.face.as_ivec();
+            intersection.entered_tile = tile_pos;
+        }
+
+        intersections
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct RayIntersection {
+    pub face: TileFace,
+    pub entered_tile: IVec2,
+    pub isect_pos: Vec2,
+    pub dist: f32,
 }
 
 // === TileLayerData === //
