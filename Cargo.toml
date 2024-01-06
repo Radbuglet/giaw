@@ -1,3 +1,3 @@
 [workspace]
-members = ["src/client", "src/shared"]
+members = ["src/client", "src/server", "src/shared"]
 resolver = "2"

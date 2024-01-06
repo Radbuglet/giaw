@@ -2,7 +2,7 @@ use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
         kinematic::{KinematicManager, TileColliderDescriptor},
-        tile::{TileMap, TileLayerConfig},
+        tile::{TileLayerConfig, TileMap},
         transform::{ColliderManager, Transform},
     },
     util::{
