@@ -6,6 +6,7 @@ This is a simple Rust project to challenge myself to write a game in a week. In 
 
 Core:
 
+- [ ] Improve actor system (we really shouldn't be registering every actor in a registry)
 - [ ] Implement ray and hull casts
 - [ ] Improve layer system
 - [ ] Implement collider masks

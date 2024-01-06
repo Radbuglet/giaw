@@ -81,12 +81,12 @@ impl Aabb {
         !(
             // We're entirely to the left
             self.max.x < other.min.x ||
-			// We're entirely to the right
-			other.max.x < self.min.x ||
-			// We're entirely above
-			self.max.y < other.min.y ||
-			// We're entirely below
-			other.max.y < self.min.y
+            // We're entirely to the right
+            other.max.x < self.min.x ||
+            // We're entirely above
+            self.max.y < other.min.y ||
+            // We're entirely below
+            other.max.y < self.min.y
         )
     }
 
