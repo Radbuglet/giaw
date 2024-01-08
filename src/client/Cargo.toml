@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "a7ce9d9225ff446543ed998afdd645e145d2d3f4" }
 cbit = "0.1.0"
 color-backtrace = "0.6.1"
 extend = "1.2.0"

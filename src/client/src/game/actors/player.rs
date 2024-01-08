@@ -1,3 +1,4 @@
+use aunty::{Entity, Obj};
 use giaw_shared::{
     game::{
         actors::player::PlayerState,
@@ -7,10 +8,7 @@ use giaw_shared::{
             transform::{Collider, EntityExt, Transform},
         },
     },
-    util::{
-        lang::{entity::Entity, obj::Obj},
-        math::{aabb::Aabb, scalar::lerp_f32},
-    },
+    util::math::{aabb::Aabb, scalar::lerp_f32},
 };
 use macroquad::{
     color::{BLUE, RED},

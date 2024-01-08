@@ -1,17 +1,12 @@
 use std::{cell::RefCell, ops::ControlFlow};
 
+use aunty::{CyclicCtor, Entity, Obj};
 use glam::{IVec2, Vec2};
 use smallvec::SmallVec;
 
-use crate::util::{
-    lang::{
-        entity::{CyclicCtor, Entity},
-        obj::Obj,
-    },
-    math::{
-        aabb::Aabb,
-        glam::{add_magnitude, Axis2, Sign, Vec2Ext},
-    },
+use crate::util::math::{
+    aabb::Aabb,
+    glam::{add_magnitude, Axis2, Sign, Vec2Ext},
 };
 
 use super::{

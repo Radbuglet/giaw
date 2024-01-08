@@ -1,3 +1,4 @@
+use aunty::{CyclicCtor, Obj};
 use glam::Vec2;
 
 use crate::{
@@ -5,10 +6,7 @@ use crate::{
         kinematic::{filter_descendants, KinematicManager},
         transform::{Collider, EntityExt, Transform},
     },
-    util::{
-        lang::{entity::CyclicCtor, obj::Obj},
-        math::aabb::Aabb,
-    },
+    util::math::aabb::Aabb,
 };
 
 #[derive(Debug)]

@@ -1,15 +1,11 @@
+use aunty::{delegate, CyclicCtor, Entity, Obj};
 use extend::ext;
 use rustc_hash::FxHashMap;
 use std::num::NonZeroU64;
 
 use super::transform::EntityExt;
 
-use crate::util::lang::{
-    delegate::delegate,
-    entity::{CyclicCtor, Entity},
-    obj::Obj,
-    vec::ensure_index,
-};
+use crate::util::lang::vec::ensure_index;
 
 // === Path === //
 
@@ -165,6 +161,8 @@ pub struct RpcNode {
     manager: Obj<RpcManager>,
     id: RpcNodeId,
     rpc_handlers: Vec<Option<RpcHandler>>,
+    catchup_generators: FxHashMap<u32, RpcCatchupGenerator>,
+    catchup_handlers: FxHashMap<u32, RpcCatchupHandler>,
 }
 
 impl RpcNode {
@@ -182,6 +180,8 @@ impl RpcNode {
                 manager,
                 id,
                 rpc_handlers: Vec::new(),
+                catchup_generators: FxHashMap::default(),
+                catchup_handlers: FxHashMap::default(),
             }
         }
     }
@@ -190,6 +190,14 @@ impl RpcNode {
         let slot = ensure_index(&mut self.rpc_handlers, path as usize);
         debug_assert!(slot.is_none());
         *slot = Some(handler);
+    }
+
+    pub fn bind_catchup_gen(&mut self, path: u32, handler: RpcCatchupGenerator) {
+        self.catchup_generators.insert(path, handler);
+    }
+
+    pub fn bind_catchup_handler(&mut self, path: u32, handler: RpcCatchupHandler) {
+        self.catchup_handlers.insert(path, handler);
     }
 
     pub fn id(&self) -> RpcNodeId {
@@ -228,7 +236,17 @@ pub trait RpcNodeBuilder<'a, R>: Copy {
     where
         C: RpcPathBuilder<R2, Output = R>;
 
-    fn bind(self, handler: impl 'static + Fn(Entity, &[u8]))
+    fn bind_rpc_handler(self, handler: impl 'static + Fn(Entity, &[u8]))
+    where
+        R: Default;
+
+    fn bind_catchup_gen(
+        self,
+        handler: impl 'static + Fn(Entity, &mut Vec<u8>) -> anyhow::Result<()>,
+    ) where
+        R: Default;
+
+    fn bind_catchup_handler(self, handler: impl 'static + Fn(&[u8]) -> anyhow::Result<()>)
     where
         R: Default;
 }
@@ -257,7 +275,7 @@ where
         }
     }
 
-    fn bind(self, handler: impl 'static + Fn(Entity, &[u8]))
+    fn bind_rpc_handler(self, handler: impl 'static + Fn(Entity, &[u8]))
     where
         R: Default,
     {
@@ -265,8 +283,36 @@ where
             .get_mut()
             .bind_rpc_handler(self.path.index(), RpcHandler::new(handler));
     }
+
+    fn bind_catchup_gen(
+        self,
+        handler: impl 'static + Fn(Entity, &mut Vec<u8>) -> anyhow::Result<()>,
+    ) where
+        R: Default,
+    {
+        self.node
+            .get_mut()
+            .bind_catchup_gen(self.path.index(), RpcCatchupGenerator::new(handler));
+    }
+
+    fn bind_catchup_handler(self, handler: impl 'static + Fn(&[u8]) -> anyhow::Result<()>)
+    where
+        R: Default,
+    {
+        self.node
+            .get_mut()
+            .bind_catchup_handler(self.path.index(), RpcCatchupHandler::new(handler));
+    }
 }
 
 delegate! {
     pub fn RpcHandler(peer: Entity, data: &[u8])
+}
+
+delegate! {
+    pub fn RpcCatchupGenerator(peer: Entity, buf: &mut Vec<u8>) -> anyhow::Result<()>
+}
+
+delegate! {
+    pub fn RpcCatchupHandler(data: &[u8]) -> anyhow::Result<()>
 }

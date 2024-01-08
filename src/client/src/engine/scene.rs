@@ -1,4 +1,4 @@
-use giaw_shared::delegate;
+use aunty::delegate;
 
 delegate! {
     pub fn RenderHandler()

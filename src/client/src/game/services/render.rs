@@ -1,12 +1,10 @@
 use std::cell::RefCell;
 
-use giaw_shared::{
-    game::services::{
-        actors::ActorManager,
-        tile::{MaterialCache, TileMap},
-        transform::EntityExt,
-    },
-    util::lang::{entity::CyclicCtor, obj::Obj},
+use aunty::{CyclicCtor, Obj};
+use giaw_shared::game::services::{
+    actors::ActorManager,
+    tile::{MaterialCache, TileMap},
+    transform::EntityExt,
 };
 use macroquad::{
     camera::{pop_camera_state, push_camera_state, set_camera},

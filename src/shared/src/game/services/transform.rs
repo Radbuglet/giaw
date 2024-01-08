@@ -1,16 +1,11 @@
 use std::cell::Cell;
 
+use aunty::{CyclicCtor, Entity, Obj};
 use autoken::ImmutableBorrow;
 use extend::ext;
 use glam::{Affine2, Vec2};
 
-use crate::util::{
-    lang::{
-        entity::{CyclicCtor, Entity},
-        obj::Obj,
-    },
-    math::aabb::Aabb,
-};
+use crate::util::math::aabb::Aabb;
 
 #[derive(Debug)]
 pub struct Transform {

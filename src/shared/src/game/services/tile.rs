@@ -1,15 +1,12 @@
 use std::mem;
 
+use aunty::{Entity, Obj, StrongEntity, StrongObj};
 use glam::{IVec2, Vec2};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 use crate::util::{
-    lang::{
-        entity::{Entity, StrongEntity},
-        obj::{Obj, StrongObj},
-        vec::ensure_index,
-    },
+    lang::vec::ensure_index,
     math::{
         aabb::{Aabb, AabbI},
         glam::{AaLine, Axis2, Sign, TileFace, Vec2Ext},

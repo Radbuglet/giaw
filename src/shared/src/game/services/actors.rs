@@ -1,12 +1,8 @@
 use std::{cell::RefCell, ops::ControlFlow};
 
+use aunty::{delegate, Entity, StrongEntity};
 use autoken::ImmutableBorrow;
 use rustc_hash::FxHashSet;
-
-use crate::{
-    delegate,
-    util::lang::entity::{Entity, StrongEntity},
-};
 
 use super::transform::Transform;
 

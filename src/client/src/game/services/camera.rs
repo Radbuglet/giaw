@@ -1,9 +1,7 @@
+use aunty::{CyclicCtor, Obj};
 use giaw_shared::{
     game::services::transform::{EntityExt, Transform},
-    util::{
-        lang::{entity::CyclicCtor, obj::Obj},
-        math::aabb::Aabb,
-    },
+    util::math::aabb::Aabb,
 };
 use macroquad::{
     camera::Camera,

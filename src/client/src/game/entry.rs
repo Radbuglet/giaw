@@ -1,3 +1,4 @@
+use aunty::{Obj, StrongEntity};
 use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
@@ -5,10 +6,7 @@ use giaw_shared::{
         tile::{TileLayerConfig, TileMap},
         transform::{ColliderManager, Transform},
     },
-    util::{
-        lang::{entity::StrongEntity, obj::Obj},
-        math::aabb::{Aabb, AabbI},
-    },
+    util::math::aabb::{Aabb, AabbI},
 };
 use macroquad::{color::GREEN, math::IVec2};
 
