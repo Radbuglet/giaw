@@ -11,7 +11,7 @@ use crate::util::math::{
 
 use super::{
     tile::{MaterialCache, MaterialInfo, TileMap},
-    transform::{Collider, ColliderManager, EntityExt, ObjTransformExt, Transform},
+    transform::{Collider, ColliderManager, EntityExt, Transform},
 };
 
 #[derive(Debug)]
@@ -189,9 +189,11 @@ pub fn filter_descendants(
     ignore_descendants: Option<&Obj<Transform>>,
 ) -> impl FnMut(AnyCollision<'_>) -> bool + '_ {
     move |collider| match (collider, ignore_descendants) {
-        (AnyCollision::Collider(_, ob, _), Some(ignore_descendants)) => {
-            !ob.get().transform().is_descendant_of(ignore_descendants)
-        }
+        (AnyCollision::Collider(_, ob, _), Some(ignore_descendants)) => !ob
+            .get()
+            .transform()
+            .get()
+            .is_descendant_of(ignore_descendants),
         _ => true,
     }
 }

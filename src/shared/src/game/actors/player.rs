@@ -64,7 +64,7 @@ impl PlayerState {
             self.velocity.y = 0.;
         }
 
-        xform.translate_local_pos(kinematic.move_by(
+        xform.translate_local(kinematic.move_by(
             aabb,
             self.velocity * dt,
             filter_descendants(Some(&self.transform)),

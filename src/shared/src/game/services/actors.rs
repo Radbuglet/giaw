@@ -43,7 +43,7 @@ impl ActorManager {
     pub fn queue_despawn(&self, actor: &Transform) {
         self.queued_despawns.borrow_mut().insert(actor.entity());
 
-        for descendant in actor.children() {
+        for descendant in actor.children().iter() {
             self.queue_despawn(&descendant.get());
         }
     }

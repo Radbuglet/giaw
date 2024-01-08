@@ -1,124 +1,89 @@
-use std::cell::Cell;
+use std::cell::{Cell, Ref, RefCell};
 
-use aunty::{CyclicCtor, Entity, Obj};
+use aunty::{CyclicCtor, Entity, Obj, OpenCell};
 use autoken::ImmutableBorrow;
 use extend::ext;
 use glam::{Affine2, Vec2};
 
 use crate::util::math::aabb::Aabb;
 
+// === Transform === //
+
 #[derive(Debug)]
 pub struct Transform {
-    me: Entity,
-    parent: Option<Obj<Transform>>,
-    children: Vec<Obj<Transform>>,
-    index_in_parent: usize,
-    collider: Option<Obj<Collider>>,
+    me: (Entity, Obj<Self>),
+    parent: OpenCell<Option<Obj<Self>>>,
+    children: RefCell<Vec<Obj<Self>>>,
+    collider: OpenCell<Option<Obj<Collider>>>,
+    index_in_parent: Cell<usize>,
     local_xform: Cell<Affine2>,
     global_xform: Cell<Affine2>,
 }
 
 impl Transform {
-    pub fn new(parent: Option<Obj<Transform>>) -> impl CyclicCtor<Self> {
+    // === Ancestry === //
+
+    pub fn new(parent: Option<Obj<Self>>) -> impl CyclicCtor<Self> {
         |me, ob| {
             let mut index_in_parent = 0;
-
             if let Some(parent) = &parent {
-                let mut parent = parent.get_mut();
-                index_in_parent = parent.children.len();
-                parent.children.push(ob.clone());
+                let parent = parent.get();
+                let mut children = parent.children.borrow_mut();
+
+                index_in_parent = children.len();
+                children.push(ob.clone());
             }
 
             Self {
-                me,
-                parent,
-                children: Vec::new(),
-                index_in_parent,
-                collider: None,
+                me: (me, ob.clone()),
+                parent: OpenCell::new(parent),
+                children: RefCell::default(),
+                collider: OpenCell::default(),
+                index_in_parent: Cell::new(index_in_parent),
                 local_xform: Cell::new(Affine2::IDENTITY),
                 global_xform: Cell::new(Affine2::NAN),
             }
         }
     }
 
-    pub fn local_xform(&self) -> Affine2 {
-        self.local_xform.get()
+    pub fn parent(&self) -> Option<Obj<Self>> {
+        self.parent.get()
     }
 
-    pub fn set_local_xform(&self, xform: Affine2) {
-        self.local_xform.set(xform);
-        self.invalidate_global_xform();
-    }
+    pub fn set_parent(&self, parent: Option<Obj<Self>>) {
+        if let Some(parent) = self.parent() {
+            let parent = parent.get();
+            let index_in_parent = self.index_in_parent.get();
 
-    pub fn global_xform(&self) -> Affine2 {
-        let mut xform = self.global_xform.get();
-        if xform.is_nan() {
-            let parent_xform = self
-                .parent
-                .as_ref()
-                .map_or(Affine2::IDENTITY, |parent| parent.get().global_xform());
+            let mut children = parent.children.borrow_mut();
+            children.swap_remove(index_in_parent);
 
-            xform = parent_xform * self.local_xform.get();
-            self.global_xform.set(xform);
+            if let Some(moved) = children.get(index_in_parent) {
+                moved.get().index_in_parent.set(index_in_parent);
+            }
         }
 
-        xform
-    }
+        self.parent.set(parent);
 
-    pub fn invalidate_global_xform(&self) {
-        if !self.global_xform.get().is_nan() {
-            self.global_xform.set(Affine2::NAN);
+        if let Some(parent) = self.parent() {
+            let parent = parent.get();
 
-            if let Some(collider) = &self.collider {
-                collider.get().invalidate_global_aabb();
-            }
-
-            for child in &self.children {
-                child.get().invalidate_global_xform();
-            }
+            let mut children = parent.children.borrow_mut();
+            self.index_in_parent.set(children.len());
+            children.push(self.me.1.clone());
         }
     }
 
-    pub fn local_pos(&self) -> Vec2 {
-        self.local_xform().translation
-    }
-
-    pub fn set_local_pos(&self, pos: Vec2) {
-        let mut xform = self.local_xform();
-        xform.translation = pos;
-        self.set_local_xform(xform);
-    }
-
-    pub fn translate_local_pos(&self, by: Vec2) {
-        self.set_local_pos(self.local_pos() + by);
-    }
-
-    pub fn global_pos(&self) -> Vec2 {
-        self.global_xform().translation
-    }
-
-    pub fn parent(&self) -> Option<&Obj<Transform>> {
-        self.parent.as_ref()
-    }
-
-    pub fn children(&self) -> &[Obj<Transform>] {
-        &self.children
+    pub fn children(&self) -> Ref<'_, [Obj<Self>]> {
+        Ref::map(self.children.borrow(), Vec::as_slice)
     }
 
     pub fn entity(&self) -> Entity {
-        self.me
-    }
-
-    pub fn collider(&self) -> Option<&Obj<Collider>> {
-        self.collider.as_ref()
-    }
-
-    pub(super) fn set_collider(&mut self, collider: Option<Obj<Collider>>) {
-        self.collider = collider;
+        self.me.0
     }
 
     pub fn deep_obj<T: 'static>(&self) -> Obj<T> {
-        let loaner = ImmutableBorrow::<Transform>::new();
+        let loaner = ImmutableBorrow::<Self>::new();
         let mut guard;
         let mut search = self;
 
@@ -135,40 +100,119 @@ impl Transform {
             search = &*guard;
         }
     }
-}
 
-#[ext]
-pub impl Obj<Transform> {
-    fn set_parent(&self, parent: Option<Obj<Transform>>) {
-        let mut me = self.get_mut();
+    pub fn collider(&self) -> Option<Obj<Collider>> {
+        self.collider.get()
+    }
 
-        if let Some(parent) = &me.parent {
-            let mut parent = autoken::assume_no_alias(|| parent.get_mut());
-            parent.children.swap_remove(me.index_in_parent);
+    pub(super) fn set_collider(&self, collider: Option<Obj<Collider>>) {
+        self.collider.set(collider);
+    }
 
-            if let Some(moved) = parent.children.get(me.index_in_parent) {
-                autoken::assume_no_alias(|| moved.get_mut()).index_in_parent = me.index_in_parent;
-            }
+    // === Transforms === //
+
+    pub fn local_xform(&self) -> Affine2 {
+        self.local_xform.get()
+    }
+
+    pub fn parent_xform(&self) -> Affine2 {
+        self.parent()
+            .map_or(Affine2::IDENTITY, |parent| parent.get().global_xform())
+    }
+
+    pub fn global_xform(&self) -> Affine2 {
+        let mut global_xform = self.global_xform.get();
+        if global_xform.is_nan() {
+            global_xform = self.parent_xform() * self.local_xform();
+            self.global_xform.set(global_xform);
         }
 
-        me.parent = parent;
+        global_xform
+    }
 
-        if let Some(parent) = &me.parent {
-            let mut parent = autoken::assume_no_alias(|| parent.get_mut());
-            me.index_in_parent = parent.children.len();
-            parent.children.push(self.clone());
+    pub fn set_local_xform(&self, affine: Affine2) {
+        self.local_xform.set(affine);
+        self.invalidate_global_xform();
+    }
+
+    pub fn set_global_xform(&self, affine: Affine2) {
+        self.local_xform.set(self.parent_xform().inverse() * affine);
+        self.global_xform.set(affine);
+
+        for child in self.children().iter() {
+            child.get().invalidate_global_xform();
         }
     }
 
-    fn is_descendant_of(&self, other: &Obj<Transform>) -> bool {
-        let mut iter = self.clone();
+    pub fn invalidate_global_xform(&self) {
+        if !self.global_xform.get().is_nan() {
+            self.global_xform.set(Affine2::NAN);
+
+            if let Some(collider) = self.collider() {
+                collider.get().invalidate_global_aabb();
+            }
+
+            for child in self.children().iter() {
+                child.get().invalidate_global_xform();
+            }
+        }
+    }
+
+    // === Transform helpers === //
+
+    pub fn update_local_xform(&self, f: impl FnOnce(Affine2) -> Affine2) {
+        self.set_local_xform(f(self.local_xform()));
+    }
+
+    pub fn update_global_xform(&self, f: impl FnOnce(Affine2) -> Affine2) {
+        self.set_global_xform(f(self.global_xform()));
+    }
+
+    pub fn local_pos(&self) -> Vec2 {
+        self.local_xform().translation
+    }
+
+    pub fn global_pos(&self) -> Vec2 {
+        self.global_xform().translation
+    }
+
+    pub fn set_local_pos(&self, pos: Vec2) {
+        self.update_local_xform(|mut xf| {
+            xf.translation = pos;
+            xf
+        })
+    }
+
+    pub fn set_global_pos(&self, pos: Vec2) {
+        self.update_global_xform(|mut xf| {
+            xf.translation = pos;
+            xf
+        })
+    }
+
+    pub fn translate_local(&self, dt: Vec2) {
+        self.update_local_xform(|mut xf| {
+            xf.translation += dt;
+            xf
+        })
+    }
+
+    pub fn translate_global(&self, dt: Vec2) {
+        self.update_global_xform(|mut xf| {
+            xf.translation += dt;
+            xf
+        })
+    }
+
+    pub fn is_descendant_of(&self, other: &Obj<Self>) -> bool {
+        let mut iter = self.me.1.clone();
 
         loop {
             if &iter == other {
                 return true;
             }
 
-            let Some(parent) = iter.get().parent.clone() else {
+            let Some(parent) = iter.get().parent() else {
                 return false;
             };
 
@@ -176,8 +220,8 @@ pub impl Obj<Transform> {
         }
     }
 
-    fn is_ancestor_of(&self, other: &Obj<Transform>) -> bool {
-        other.is_descendant_of(self)
+    pub fn is_ancestor_of(&self, other: &Obj<Self>) -> bool {
+        other.get().is_descendant_of(&self.me.1)
     }
 }
 
@@ -232,7 +276,7 @@ impl Collider {
             // Link dependencies
             let transform = me.obj::<Transform>();
             let manager = transform.get().deep_obj::<ColliderManager>();
-            transform.get_mut().set_collider(Some(ob.clone()));
+            transform.get().set_collider(Some(ob.clone()));
 
             // Add to manager
             let mut manager_mut = manager.get_mut();
