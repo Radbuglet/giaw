@@ -3,6 +3,7 @@ use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
         kinematic::{KinematicManager, TileColliderDescriptor},
+        rpc::{RpcManager, RpcNodeId},
         tile::{TileLayerConfig, TileMap},
         transform::{ColliderManager, Transform},
     },
@@ -27,31 +28,8 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(ActorManager::default())
         .with(ColliderManager::default())
         .with(CameraManager::default())
-        .with_cyclic(|_, _| {
-            let mut map = TileMap::default();
-            let layer = map.push_layer("under_player", TileLayerConfig::from_size(0.5));
-            let placeholder;
-
-            {
-                let mut materials = map.materials.get_mut();
-                materials.register("air", StrongEntity::new().with("air descriptor"));
-                placeholder = materials.register(
-                    "placeholder",
-                    StrongEntity::new()
-                        .with("placeholder descriptor")
-                        .with(TileVisualDescriptor { color: GREEN })
-                        .with(TileColliderDescriptor::new([Aabb::ZERO_TO_ONE])),
-                );
-            }
-
-            for pos in AabbI::new_sized(IVec2::new(-10, 5), IVec2::new(20, 20))
-                .inclusive()
-                .iter()
-            {
-                map.set(layer, pos, placeholder);
-            }
-            map
-        })
+        .with(TileMap::default())
+        .with(RpcManager::default())
         .with_cyclic(KinematicManager::new())
         .with_cyclic(WorldRenderer::new())
         .with_cyclic(|me, _| {
@@ -76,6 +54,32 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
             })
         });
 
-    create_player(&mut scene.get_mut(), Some(scene.obj()));
+    // Setup initial scene
+    {
+        let mut map = scene.get_mut::<TileMap>();
+        let layer = map.push_layer("under_player", TileLayerConfig::from_size(0.5));
+        let placeholder;
+
+        {
+            let mut materials = map.materials.get_mut();
+            materials.register("air", StrongEntity::new().with("air descriptor"));
+            placeholder = materials.register(
+                "placeholder",
+                StrongEntity::new()
+                    .with("placeholder descriptor")
+                    .with(TileVisualDescriptor { color: GREEN })
+                    .with(TileColliderDescriptor::new([Aabb::ZERO_TO_ONE])),
+            );
+        }
+
+        for pos in AabbI::new_sized(IVec2::new(-10, 5), IVec2::new(20, 20))
+            .inclusive()
+            .iter()
+        {
+            map.set(layer, pos, placeholder);
+        }
+    }
+
+    create_player(&mut scene.get_mut(), RpcNodeId::ROOT, Some(scene.obj()));
     scene
 }

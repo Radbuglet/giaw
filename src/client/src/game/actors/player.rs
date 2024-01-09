@@ -1,9 +1,10 @@
 use aunty::{Entity, Obj};
 use giaw_shared::{
     game::{
-        actors::player::PlayerState,
+        actors::player::{PlayerRpcs, PlayerState},
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
+            rpc::{HelloPacket, RpcNode, RpcNodeBuilder, RpcNodeId},
             tile::TileMap,
             transform::{Collider, EntityExt, Transform},
         },
@@ -30,13 +31,18 @@ pub struct PlayerClientState {
     last_build_state: bool,
 }
 
-pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) -> Entity {
+pub fn create_player(
+    actors: &mut ActorManager,
+    rpc_id: RpcNodeId,
+    parent: Option<Obj<Transform>>,
+) -> Entity {
     actors
         .spawn()
         .with_debug_label("player")
         .with_cyclic(Transform::new(parent))
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(0.6)))
         .with_cyclic(PlayerState::new())
+        .with_cyclic(RpcNode::new(rpc_id))
         .with(PlayerClientState::default())
         .with_cyclic(VirtualCamera::new_attached(
             Aabb::ZERO,
@@ -44,6 +50,14 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         ))
         // Handlers
         .with_cyclic(|me, _| {
+            let rpc = me.obj::<RpcNode>();
+            let rpc = RpcNodeBuilder::new(&rpc);
+
+            rpc.sub(PlayerRpcs::Packet1).bind(|_, data: HelloPacket| {
+                println!("Hello sent with data {}", data.foo);
+                Ok(())
+            });
+
             let player = me.obj::<PlayerState>();
             let player_client = me.obj::<PlayerClientState>();
             let camera_mgr = me.deep_obj::<CameraManager>();
@@ -159,6 +173,7 @@ pub fn create_player(actors: &mut ActorManager, parent: Option<Obj<Transform>>) 
         .with_cyclic(|me, _| {
             DespawnHandler::new(move || {
                 me.get::<Collider>().despawn();
+                me.get::<RpcNode>().despawn();
             })
         })
 }

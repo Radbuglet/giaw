@@ -6,8 +6,15 @@ use crate::{
         kinematic::{filter_descendants, KinematicManager},
         transform::{Collider, EntityExt, Transform},
     },
-    util::math::aabb::Aabb,
+    util::math::aabb::Aabb, rpc_path,
 };
+
+rpc_path! {
+	pub enum PlayerRpcs {
+		Packet1,
+		Packet2,
+	}
+}
 
 #[derive(Debug)]
 pub struct PlayerState {

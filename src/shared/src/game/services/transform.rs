@@ -5,7 +5,7 @@ use autoken::ImmutableBorrow;
 use extend::ext;
 use glam::{Affine2, Vec2};
 
-use crate::util::math::aabb::Aabb;
+use crate::util::{lang::drop_step::DespawnStep, math::aabb::Aabb};
 
 // === Transform === //
 
@@ -259,6 +259,8 @@ impl ColliderManager {
 
 #[derive(Debug)]
 pub struct Collider {
+    despawn: DespawnStep,
+
     // Cached references
     me: Entity,
     transform: Obj<Transform>,
@@ -285,6 +287,7 @@ impl Collider {
             drop(manager_mut);
 
             Self {
+                despawn: DespawnStep::default(),
                 me,
                 transform,
                 manager,
@@ -300,6 +303,8 @@ impl Collider {
     }
 
     pub fn despawn(&self) {
+        self.despawn.mark();
+
         let mut manager = self.manager.get_mut();
         let index_in_manager = self.index_in_manager.get();
         manager.colliders.swap_remove(index_in_manager);
