@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "a7ce9d9225ff446543ed998afdd645e145d2d3f4" }
+anyhow = "1.0.79"
+aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "82c8d0f2721abd4e39274b5eca0ef62c566f6357" }
+bytes = "1.5.0"
 cbit = "0.1.0"
 color-backtrace = "0.6.1"
 extend = "1.2.0"
 giaw-shared = { version = "0.1.0", path = "../shared" }
 macroquad = "0.4.4"
 quad-net = "0.1.1"
+rustc-hash = "1.1.0"
+serde = "1.0.195"

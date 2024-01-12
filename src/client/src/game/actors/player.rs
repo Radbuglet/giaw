@@ -1,10 +1,10 @@
 use aunty::{Entity, Obj};
 use giaw_shared::{
     game::{
-        actors::player::{PlayerRpcs, PlayerState},
+        actors::player::{PlayerPacket1, PlayerRpcs, PlayerState},
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
-            rpc::{HelloPacket, RpcNode, RpcNodeBuilder, RpcNodeId},
+            rpc::RpcNodeId,
             tile::TileMap,
             transform::{Collider, EntityExt, Transform},
         },
@@ -22,7 +22,10 @@ use macroquad::{
 
 use crate::{
     engine::scene::RenderHandler,
-    game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
+    game::services::{
+        camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
+        rpc::{RpcNode, RpcNodeBuilder},
+    },
 };
 
 #[derive(Debug, Default)]
@@ -53,8 +56,8 @@ pub fn create_player(
             let rpc = me.obj::<RpcNode>();
             let rpc = RpcNodeBuilder::new(&rpc);
 
-            rpc.sub(PlayerRpcs::Packet1).bind(|_, data: HelloPacket| {
-                println!("Hello sent with data {}", data.foo);
+            rpc.sub(PlayerRpcs::Packet1).bind(|_, data: PlayerPacket1| {
+                println!("Hello sent with data {:?}", data);
                 Ok(())
             });
 

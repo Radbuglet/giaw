@@ -5,10 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
-aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "a7ce9d9225ff446543ed998afdd645e145d2d3f4" }
+aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "82c8d0f2721abd4e39274b5eca0ef62c566f6357" }
 autoken = "0.1.0"
 bincode = "1.3.3"
-bytes = "1.5.0"
+bytes = { version = "1.5.0", features = ["serde"] }
 cbit = "0.1.0"
 derive-where = "1.2.7"
 enum-map = "2.7.3"

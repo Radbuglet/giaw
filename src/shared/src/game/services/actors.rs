@@ -1,10 +1,16 @@
-use std::{cell::RefCell, ops::ControlFlow};
+use std::{
+    cell::{Cell, RefCell},
+    ops::ControlFlow,
+    thread::panicking,
+};
 
 use aunty::{delegate, Entity, StrongEntity};
 use autoken::ImmutableBorrow;
 use rustc_hash::FxHashSet;
 
 use super::transform::Transform;
+
+// === ActorManager === //
 
 #[derive(Debug, Default)]
 pub struct ActorManager {
@@ -84,10 +90,47 @@ impl ActorManager {
     }
 }
 
+// === Standard Handlers === //
+
 delegate! {
     pub fn DespawnHandler()
 }
 
 delegate! {
     pub fn UpdateHandler()
+}
+
+// === DespawnStep === //
+
+#[derive(Debug, Clone, Default)]
+pub struct DespawnStep {
+    #[cfg(debug_assertions)]
+    dropped: Cell<bool>,
+}
+
+impl DespawnStep {
+    pub fn mark(&self) {
+        #[cfg(debug_assertions)]
+        {
+            assert!(
+                !self.dropped.get(),
+                "component was despawned more than once"
+            );
+            self.dropped.set(true);
+        }
+    }
+}
+
+impl Drop for DespawnStep {
+    fn drop(&mut self) {
+        #[cfg(debug_assertions)]
+        {
+            if !panicking() {
+                assert!(
+                    self.dropped.get(),
+                    "component was not despawned before being dropped"
+                );
+            }
+        }
+    }
 }

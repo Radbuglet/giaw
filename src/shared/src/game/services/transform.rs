@@ -1,20 +1,25 @@
-use std::cell::{Cell, Ref, RefCell};
+use std::{
+    cell::{Cell, Ref, RefCell},
+    thread::panicking,
+};
 
-use aunty::{CyclicCtor, Entity, Obj, OpenCell};
+use aunty::{CloneCell, CyclicCtor, Entity, Obj};
 use autoken::ImmutableBorrow;
 use extend::ext;
 use glam::{Affine2, Vec2};
 
-use crate::util::{lang::drop_step::DespawnStep, math::aabb::Aabb};
+use crate::util::math::aabb::Aabb;
+
+use super::actors::DespawnStep;
 
 // === Transform === //
 
 #[derive(Debug)]
 pub struct Transform {
     me: (Entity, Obj<Self>),
-    parent: OpenCell<Option<Obj<Self>>>,
+    parent: CloneCell<Option<Obj<Self>>>,
     children: RefCell<Vec<Obj<Self>>>,
-    collider: OpenCell<Option<Obj<Collider>>>,
+    collider: CloneCell<Option<Obj<Collider>>>,
     index_in_parent: Cell<usize>,
     local_xform: Cell<Affine2>,
     global_xform: Cell<Affine2>,
@@ -36,9 +41,9 @@ impl Transform {
 
             Self {
                 me: (me, ob.clone()),
-                parent: OpenCell::new(parent),
+                parent: CloneCell::new(parent),
                 children: RefCell::default(),
-                collider: OpenCell::default(),
+                collider: CloneCell::default(),
                 index_in_parent: Cell::new(index_in_parent),
                 local_xform: Cell::new(Affine2::IDENTITY),
                 global_xform: Cell::new(Affine2::NAN),
@@ -350,6 +355,8 @@ impl Collider {
 
 impl Drop for Collider {
     fn drop(&mut self) {
-        assert_eq!(self.index_in_manager.get(), usize::MAX);
+        if !panicking() {
+            assert_eq!(self.index_in_manager.get(), usize::MAX);
+        }
     }
 }
