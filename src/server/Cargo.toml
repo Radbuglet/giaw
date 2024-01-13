@@ -7,10 +7,12 @@ edition = "2021"
 anyhow = "1.0.79"
 aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "82c8d0f2721abd4e39274b5eca0ef62c566f6357" }
 bytes = "1.5.0"
+color-backtrace = "0.6.1"
 env_logger = "0.10.1"
 futures = "0.3.30"
 giaw-shared = { version = "0.1.0", path = "../shared" }
 log = "0.4.20"
+rustc-hash = "1.1.0"
 serde = "1.0.195"
 tokio = { version = "1.35.1", features = ["full"] }
 tokio-stream = "0.1.14"

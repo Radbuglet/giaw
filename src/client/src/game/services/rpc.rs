@@ -14,7 +14,11 @@ use giaw_shared::{
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 
-// === Rpc Client === //
+// === RpcManager === //
+
+delegate! {
+    pub fn RpcMessageHandler(data: &Bytes)
+}
 
 #[derive(Debug, Default)]
 pub struct RpcManager {
@@ -44,26 +48,18 @@ impl RpcManagerObj {
         {
             let mut me = self.obj.get_mut();
 
-            for part in &packet.parts {
-                if !part.is_catchup {
-                    continue;
-                }
-
+            for part in &packet.catchup {
                 let Some(id) = NonZeroU64::new(part.node_id).map(RpcNodeId) else {
                     me.report_error(anyhow::anyhow!("encountered invalid null node ID"));
                     continue;
                 };
 
-                me.catchups.insert((id, part.sub_id), part.data.clone());
+                me.catchups.insert((id, part.path), part.data.clone());
             }
         }
 
-        // Process RPCs
-        for part in &packet.parts {
-            if part.is_catchup {
-                continue;
-            }
-
+        // Process message packets
+        for part in &packet.messages {
             let Some(id) = NonZeroU64::new(part.node_id).map(RpcNodeId) else {
                 self.report_error(anyhow::anyhow!("encountered invalid null node ID"));
                 continue;
@@ -79,13 +75,13 @@ impl RpcManagerObj {
             let Some(handler) = target
                 .get()
                 .handlers
-                .get(part.sub_id as usize)
+                .get(part.path as usize)
                 .cloned()
                 .flatten()
             else {
                 self.report_error(anyhow::anyhow!(
                     "attempted to send RPC to unknown path {:?} on node {:?} with id {id:?}",
-                    part.sub_id,
+                    part.path,
                     target,
                 ));
                 continue;
@@ -117,13 +113,15 @@ impl RpcManagerObj {
     }
 }
 
+// === RpcNode === //
+
 #[derive(Debug)]
 pub struct RpcNode {
     despawn: DespawnStep,
     me: Entity,
     id: RpcNodeId,
     manager: Obj<RpcManager>,
-    handlers: Vec<Option<RpcNodeHandler>>,
+    handlers: Vec<Option<RpcMessageHandler>>,
 }
 
 impl RpcNode {
@@ -159,7 +157,7 @@ impl RpcNode {
         self.manager.get_mut().report_error(error);
     }
 
-    pub fn bind_handler(&mut self, path: impl RpcPathBuilder, handler: RpcNodeHandler) {
+    pub fn bind_handler(&mut self, path: impl RpcPathBuilder, handler: RpcMessageHandler) {
         let slot = ensure_index(&mut self.handlers, path.index() as usize);
         debug_assert!(slot.is_none());
 
@@ -179,6 +177,8 @@ impl RpcNode {
         self.manager.get_mut().nodes.remove(&self.id);
     }
 }
+
+// === RpcNodeBuilder === //
 
 #[derive(Debug, Copy, Clone)]
 pub struct RpcNodeBuilder<'a, P> {
@@ -222,7 +222,7 @@ impl<P: RpcPathBuilder> RpcNodeBuilder<'_, P> {
 
         self.node.get_mut().bind_handler(
             self.path,
-            RpcNodeHandler::new(move |data| {
+            RpcMessageHandler::new(move |data| {
                 let me = RpcNodeBuilder {
                     node: &me.0,
                     path: me.1,
@@ -258,8 +258,4 @@ impl<P: RpcPathBuilder> RpcNodeBuilder<'_, P> {
             }
         }
     }
-}
-
-delegate! {
-    pub fn RpcNodeHandler(data: &Bytes)
 }

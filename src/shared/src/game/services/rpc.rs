@@ -129,15 +129,14 @@ pub use rpc_path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcPacket {
-    pub parts: Vec<RpcPacketPart>,
-    pub kick: bool,
+    pub catchup: Vec<RpcPacketPart>,
+    pub messages: Vec<RpcPacketPart>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcPacketPart {
     pub node_id: u64,
-    pub sub_id: u32,
-    pub is_catchup: bool,
+    pub path: u32,
     pub data: Bytes,
 }
 

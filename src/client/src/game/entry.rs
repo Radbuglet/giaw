@@ -3,12 +3,15 @@ use std::cell::Cell;
 use aunty::{Obj, StrongEntity};
 use bytes::Bytes;
 use giaw_shared::{
-    game::services::{
-        actors::{ActorManager, DespawnHandler, UpdateHandler},
-        kinematic::{KinematicManager, TileColliderDescriptor},
-        rpc::{decode_packet, encode_packet, RpcNodeId, RpcPacket},
-        tile::{TileLayerConfig, TileMap},
-        transform::{ColliderManager, Transform},
+    game::{
+        actors::player::PlayerPacket1,
+        services::{
+            actors::{ActorManager, DespawnHandler, UpdateHandler},
+            kinematic::{KinematicManager, TileColliderDescriptor},
+            rpc::{decode_packet, encode_packet, RpcNodeId, RpcPacket, RpcPacketPart},
+            tile::{TileLayerConfig, TileMap},
+            transform::{ColliderManager, Transform},
+        },
     },
     util::math::aabb::{Aabb, AabbI},
 };
@@ -47,8 +50,15 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
 
                 if frame.get() % 200 == 0 {
                     me.get_mut::<QuadSocket>().send(&encode_packet(&RpcPacket {
-                        parts: vec![],
-                        kick: false,
+                        catchup: vec![],
+                        messages: vec![RpcPacketPart {
+                            node_id: 1,
+                            path: 0,
+                            data: encode_packet(&PlayerPacket1 {
+                                hello: frame.get() as u32,
+                                world: "Whee".to_string(),
+                            }),
+                        }],
                     }));
                 }
 
