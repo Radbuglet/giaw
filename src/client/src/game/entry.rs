@@ -1,17 +1,12 @@
-use std::cell::Cell;
-
 use aunty::{Obj, StrongEntity};
 use bytes::Bytes;
 use giaw_shared::{
-    game::{
-        actors::player::PlayerPacket1,
-        services::{
-            actors::{ActorManager, DespawnHandler, UpdateHandler},
-            kinematic::{KinematicManager, TileColliderDescriptor},
-            rpc::{decode_packet, encode_packet, RpcNodeId, RpcPacket, RpcPacketPart},
-            tile::{TileLayerConfig, TileMap},
-            transform::{ColliderManager, Transform},
-        },
+    game::services::{
+        actors::{ActorManager, DespawnHandler, UpdateHandler},
+        kinematic::{KinematicManager, TileColliderDescriptor},
+        rpc::{decode_packet, encode_packet, RpcManagerClient, RpcNodeId, RpcPacket},
+        tile::{TileLayerConfig, TileMap},
+        transform::{ColliderManager, Transform},
     },
     util::math::aabb::{Aabb, AabbI},
 };
@@ -25,7 +20,6 @@ use super::{
     services::{
         camera::CameraManager,
         render::{TileVisualDescriptor, WorldRenderer},
-        rpc::RpcManager,
     },
 };
 
@@ -37,45 +31,48 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(ColliderManager::default())
         .with(CameraManager::default())
         .with(TileMap::default())
-        .with(RpcManager::default())
+        .with(RpcManagerClient::default())
         .with(QuadSocket::connect("127.0.0.1:8080").unwrap())
         .with_cyclic(KinematicManager::new())
         .with_cyclic(WorldRenderer::new())
         .with_cyclic(|me, _| {
-            let frame = Cell::new(0u64);
             UpdateHandler::new(move || {
-                let actor_mgr = me.get::<ActorManager>();
+                // Process inbound packets
+                {
+                    let packet = me.get_mut::<QuadSocket>().try_recv();
+                    if let Some(packet) = packet {
+                        let packet = decode_packet::<RpcPacket>(&Bytes::from(packet)).unwrap();
 
-                frame.set(frame.get() + 1);
-
-                if frame.get() % 200 == 0 {
-                    me.get_mut::<QuadSocket>().send(&encode_packet(&RpcPacket {
-                        catchup: vec![],
-                        messages: vec![RpcPacketPart {
-                            node_id: 1,
-                            path: 0,
-                            data: encode_packet(&PlayerPacket1 {
-                                hello: frame.get() as u32,
-                                world: "Whee".to_string(),
-                            }),
-                        }],
-                    }));
-                }
-
-                if let Some(packet) = me.get_mut::<QuadSocket>().try_recv() {
-                    let packet = decode_packet::<RpcPacket>(&Bytes::from(packet)).unwrap();
-
-                    let errors = me.obj::<RpcManager>().process_packet(&packet);
-                    if !errors.is_empty() {
-                        panic!("Errors while processing packet {packet:?}: {errors:#?}");
+                        let errors = me.obj::<RpcManagerClient>().process_packet((), &packet);
+                        if !errors.is_empty() {
+                            panic!("Errors while processing packet {packet:?}: {errors:#?}");
+                        }
                     }
                 }
 
-                cbit::cbit!(for actor in actor_mgr.iter_actors() {
-                    actor.get::<UpdateHandler>().call();
-                });
+                // Update actors
+                {
+                    let actor_mgr = me.get::<ActorManager>();
 
-                actor_mgr.process_despawns();
+                    cbit::cbit!(for actor in actor_mgr.iter_actors() {
+                        actor.get::<UpdateHandler>().call();
+                    });
+
+                    actor_mgr.process_despawns();
+                }
+
+                // Process outbound packets
+                {
+                    let mut socket = me.get_mut::<QuadSocket>();
+                    let mut manager = me.get_mut::<RpcManagerClient>();
+
+                    for ((), messages) in manager.drain_queues() {
+                        socket.send(&encode_packet(&RpcPacket {
+                            catchup: vec![],
+                            messages,
+                        }));
+                    }
+                }
             })
         })
         .with_cyclic(|me, _| {

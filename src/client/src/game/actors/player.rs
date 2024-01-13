@@ -4,7 +4,7 @@ use giaw_shared::{
         actors::player::{PlayerPacket1, PlayerRpcs, PlayerState},
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
-            rpc::RpcNodeId,
+            rpc::{RpcNodeBuilder, RpcNodeClient, RpcNodeId},
             tile::TileMap,
             transform::{Collider, EntityExt, Transform},
         },
@@ -22,10 +22,7 @@ use macroquad::{
 
 use crate::{
     engine::scene::RenderHandler,
-    game::services::{
-        camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
-        rpc::{RpcNode, RpcNodeBuilder},
-    },
+    game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
 };
 
 #[derive(Debug, Default)]
@@ -45,7 +42,7 @@ pub fn create_player(
         .with_cyclic(Transform::new(parent))
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(0.6)))
         .with_cyclic(PlayerState::new())
-        .with_cyclic(RpcNode::new(rpc_id))
+        .with_cyclic(RpcNodeClient::new(rpc_id))
         .with(PlayerClientState::default())
         .with_cyclic(VirtualCamera::new_attached(
             Aabb::ZERO,
@@ -53,13 +50,15 @@ pub fn create_player(
         ))
         // Handlers
         .with_cyclic(|me, _| {
-            let rpc = me.obj::<RpcNode>();
+            let rpc = me.obj::<RpcNodeClient>();
             let rpc = RpcNodeBuilder::new(&rpc);
 
-            rpc.sub(PlayerRpcs::Packet1).bind(|_, data: PlayerPacket1| {
-                println!("Hello sent with data {:?}", data);
-                Ok(())
-            });
+            let sender = rpc.sub(PlayerRpcs::Packet1).sender();
+            rpc.sub(PlayerRpcs::Packet2)
+                .bind_message(|_, _, data: PlayerPacket1| {
+                    println!("Hello sent with data {:?}", data);
+                    Ok(())
+                });
 
             let player = me.obj::<PlayerState>();
             let player_client = me.obj::<PlayerClientState>();
@@ -132,6 +131,13 @@ pub fn create_player(
 
                     if is_key_down(KeyCode::Space) && player.is_on_ground() {
                         player.velocity.y = -10.;
+                        sender.send(
+                            (),
+                            &PlayerPacket1 {
+                                hello: 0,
+                                world: "jumped".to_string(),
+                            },
+                        );
                     }
 
                     player.update(dt);
@@ -176,7 +182,7 @@ pub fn create_player(
         .with_cyclic(|me, _| {
             DespawnHandler::new(move || {
                 me.get::<Collider>().despawn();
-                me.get::<RpcNode>().despawn();
+                me.get::<RpcNodeClient>().despawn();
             })
         })
 }

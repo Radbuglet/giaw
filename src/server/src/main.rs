@@ -1,13 +1,15 @@
 use aunty::StrongEntity;
 use giaw_server::net::{
-    rpc::{RpcManager, RpcNode, RpcNodeBuilder},
     session::{SessionManager, SessionState},
     transport::{QuadServer, QuadServerEvent},
 };
 use giaw_shared::game::{
     actors::player::{PlayerPacket1, PlayerRpcs},
     services::{
-        rpc::{decode_packet, encode_packet, RpcNodeId, RpcPacket},
+        rpc::{
+            decode_packet, encode_packet, RpcManagerServer, RpcNodeBuilder, RpcNodeId,
+            RpcNodeServer, RpcPacket,
+        },
         transform::Transform,
     },
 };
@@ -25,25 +27,24 @@ async fn main() {
     let root = StrongEntity::new()
         .with_debug_label("engine root")
         .with_cyclic(Transform::new(None))
-        .with(RpcManager::default())
+        .with(RpcManagerServer::default())
         .with(SessionManager::default())
         .with({
             let server = TcpListener::bind("127.0.0.1:8080").await.unwrap();
             QuadServer::new(server)
         })
-        .with_cyclic(RpcNode::new(RpcNodeId::ROOT));
+        .with_cyclic(RpcNodeServer::new(RpcNodeId::ROOT));
 
     {
-        let rpc = root.obj::<RpcNode>();
-        let rpc_b = RpcNodeBuilder::new(&rpc);
+        let rpc = root.obj::<RpcNodeServer>();
+        let rpc = RpcNodeBuilder::new(&rpc);
 
-        rpc_b.sub(PlayerRpcs::Packet1).bind_message({
-            let rpc = rpc.clone();
-            move |peer, data: PlayerPacket1| {
-                rpc.get()
-                    .queue_message(peer, PlayerRpcs::Packet1, encode_packet(&data));
-                Ok(())
-            }
+        let packet_1 = rpc.sub(PlayerRpcs::Packet1);
+        let packet_2 = rpc.sub(PlayerRpcs::Packet2).sender();
+
+        packet_1.bind_message(move |peer, _, data: PlayerPacket1| {
+            packet_2.send(peer, &data);
+            Ok(())
         });
     }
 
@@ -67,7 +68,7 @@ async fn main() {
                         todo!();
                     };
 
-                    let errors = root.obj::<RpcManager>().process_packet(peer, &data);
+                    let errors = root.obj::<RpcManagerServer>().process_packet(peer, &data);
                     if !errors.is_empty() {
                         todo!();
                     }
@@ -82,8 +83,14 @@ async fn main() {
         // Send RPCs back
         {
             let mut server = root.get_mut::<QuadServer>();
-            for (peer, packet) in root.get_mut::<RpcManager>().produce_packets() {
-                server.send(peer.get::<SessionState>().id, encode_packet(&packet));
+            for (peer, messages) in root.get_mut::<RpcManagerServer>().drain_queues() {
+                server.send(
+                    peer.get::<SessionState>().id,
+                    encode_packet(&RpcPacket {
+                        catchup: vec![],
+                        messages,
+                    }),
+                );
             }
         }
     }

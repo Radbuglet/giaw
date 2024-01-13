@@ -53,7 +53,7 @@ checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 [[package]]
 name = "aunty"
 version = "0.1.0"
-source = "git+https://github.com/Radbuglet/aunty.git?rev=82c8d0f2721abd4e39274b5eca0ef62c566f6357#82c8d0f2721abd4e39274b5eca0ef62c566f6357"
+source = "git+https://github.com/Radbuglet/aunty.git?rev=826846ed76f86c4d73cc98b748afda1355b96739#826846ed76f86c4d73cc98b748afda1355b96739"
 dependencies = [
  "autoken",
  "hashbrown 0.14.3",
