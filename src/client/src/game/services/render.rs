@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use aunty::{CyclicCtor, Obj};
+use aunty::{autoken::ImmutableBorrow, CyclicCtor, Obj};
 use giaw_shared::game::services::{
     actors::ActorManager,
     tile::{MaterialCache, TileMap},
@@ -92,7 +92,10 @@ impl WorldRenderer {
 
         // Draw actors
         cbit::cbit!(for actor in self.actors.get().iter_actors() {
-            actor.get::<RenderHandler>().call();
+            let loaner = ImmutableBorrow::new();
+            if let Some(handler) = actor.try_get::<RenderHandler>(&loaner) {
+                handler.call();
+            };
         });
 
         pop_camera_state();

@@ -1,7 +1,7 @@
 use aunty::{Entity, Obj};
 use giaw_shared::{
     game::{
-        actors::player::PlayerState,
+        actors::{inventory::InventoryData, player::PlayerState},
         services::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
             rpc::{ClientRpcNode, RpcNodeId},
@@ -13,7 +13,7 @@ use giaw_shared::{
 };
 use macroquad::{
     color::{BLUE, RED},
-    input::{is_key_down, is_mouse_button_down, mouse_position},
+    input::{is_key_down, is_key_pressed, is_mouse_button_down, mouse_position},
     math::Vec2,
     miniquad::{KeyCode, MouseButton},
     shapes::{draw_circle, draw_rectangle},
@@ -25,14 +25,18 @@ use crate::{
     game::services::camera::{CameraManager, VirtualCamera, VirtualCameraConstraints},
 };
 
+// === Components === //
+
 #[derive(Debug, Default)]
-pub struct PlayerClientState {
+pub struct ClientPlayerState {
     last_build_pos: Vec2,
     last_build_state: bool,
 }
 
+// === Prefabs === //
+
 pub fn create_player(
-    actors: &mut ActorManager,
+    actors: &ActorManager,
     rpc_id: RpcNodeId,
     parent: Option<Obj<Transform>>,
 ) -> Entity {
@@ -43,7 +47,8 @@ pub fn create_player(
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(0.6)))
         .with_cyclic(PlayerState::new())
         .with_cyclic(ClientRpcNode::new(rpc_id))
-        .with(PlayerClientState::default())
+        .with(ClientPlayerState::default())
+        .with(InventoryData::new(9 * 4))
         .with_cyclic(VirtualCamera::new_attached(
             Aabb::ZERO,
             VirtualCameraConstraints::default().keep_visible_area(Vec2::splat(10.)),
@@ -51,7 +56,7 @@ pub fn create_player(
         // Handlers
         .with_cyclic(|me, _| {
             let player = me.obj::<PlayerState>();
-            let player_client = me.obj::<PlayerClientState>();
+            let player_client = me.obj::<ClientPlayerState>();
             let camera_mgr = me.deep_obj::<CameraManager>();
             let tile_map = me.deep_obj::<TileMap>();
 
@@ -124,6 +129,27 @@ pub fn create_player(
                     }
 
                     player.update(dt);
+                }
+
+                // Handle inventory selection
+                {
+                    let keys = [
+                        KeyCode::Key1,
+                        KeyCode::Key2,
+                        KeyCode::Key3,
+                        KeyCode::Key4,
+                        KeyCode::Key5,
+                        KeyCode::Key6,
+                        KeyCode::Key7,
+                        KeyCode::Key8,
+                        KeyCode::Key9,
+                    ];
+
+                    for (i, key) in keys.into_iter().enumerate() {
+                        if is_key_pressed(key) {
+                            player.hotbar_slot = i;
+                        }
+                    }
                 }
             })
         })

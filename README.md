@@ -10,6 +10,7 @@ Core:
 - [x] Improve layer system
 - [x] Net-code:
   - [x] RPC system
+  - [ ] Add culling support to RPCs
   - [ ] Synchronized lists
   - [ ] Movement replication
 - [ ] Implement collider masks
@@ -18,11 +19,11 @@ Core:
 
 Game:
 
-- [ ] Smooth out movement (dashing)
-- [ ] Make existing game multiplayer
 - [ ] Inventory
 - [ ] Gun
 - [ ] Swing ropes
+- [ ] Smooth out movement (dashing)
+- [ ] Make existing game multiplayer
 - [ ] Death-match
 - [ ] More interesting map
 - [ ] Rigid body walls

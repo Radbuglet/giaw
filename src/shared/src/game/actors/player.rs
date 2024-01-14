@@ -15,6 +15,7 @@ pub struct PlayerState {
     collider: Obj<Collider>,
     kinematic: Obj<KinematicManager>,
     pub velocity: Vec2,
+    pub hotbar_slot: usize,
 }
 
 impl PlayerState {
@@ -24,6 +25,7 @@ impl PlayerState {
             collider: me.obj(),
             kinematic: me.deep_obj(),
             velocity: Vec2::ZERO,
+            hotbar_slot: 0,
         }
     }
 
