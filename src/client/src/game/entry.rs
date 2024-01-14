@@ -66,11 +66,8 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                     let mut socket = me.get_mut::<QuadSocket>();
                     let mut manager = me.get_mut::<RpcManagerClient>();
 
-                    for ((), messages) in manager.drain_queues() {
-                        socket.send(&encode_packet(&RpcPacket {
-                            catchup: vec![],
-                            messages,
-                        }));
+                    for ((), packet) in manager.drain_queues() {
+                        socket.send(&encode_packet(&packet));
                     }
                 }
             })

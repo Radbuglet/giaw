@@ -83,14 +83,8 @@ async fn main() {
         // Send RPCs back
         {
             let mut server = root.get_mut::<QuadServer>();
-            for (peer, messages) in root.get_mut::<RpcManagerServer>().drain_queues() {
-                server.send(
-                    peer.get::<SessionState>().id,
-                    encode_packet(&RpcPacket {
-                        catchup: vec![],
-                        messages,
-                    }),
-                );
+            for (peer, packet) in root.get_mut::<RpcManagerServer>().drain_queues() {
+                server.send(peer.get::<SessionState>().id, encode_packet(&packet));
             }
         }
     }

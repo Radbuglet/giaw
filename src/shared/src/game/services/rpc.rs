@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 // === Path === //
 
 // Builder
-pub trait RpcPath: fmt::Debug {
+pub trait CompleteRpcPath: fmt::Debug {
     const MAX: u32;
 
     fn as_index(&self) -> u32;
 }
 
-impl RpcPath for () {
+impl CompleteRpcPath for () {
     const MAX: u32 = 1;
 
     fn as_index(&self) -> u32 {
@@ -23,8 +23,8 @@ impl RpcPath for () {
     }
 }
 
-pub trait RpcPathBuilder<R = ()>: Copy {
-    type Output: RpcPath;
+pub trait RpcPath<R = ()>: Copy {
+    type Output: CompleteRpcPath;
 
     fn index(self) -> u32
     where
@@ -37,15 +37,15 @@ pub trait RpcPathBuilder<R = ()>: Copy {
 
     fn sub<C, R2>(self, part: C) -> (Self, C)
     where
-        C: RpcPathBuilder<R2, Output = R>,
+        C: RpcPath<R2, Output = R>,
     {
         (self, part)
     }
 }
 
-impl<F, R, O> RpcPathBuilder<R> for F
+impl<F, R, O> RpcPath<R> for F
 where
-    O: RpcPath,
+    O: CompleteRpcPath,
     F: Copy + FnOnce(R) -> O,
 {
     type Output = O;
@@ -55,10 +55,10 @@ where
     }
 }
 
-impl<R, A, B> RpcPathBuilder<R> for (A, B)
+impl<R, A, B> RpcPath<R> for (A, B)
 where
-    A: RpcPathBuilder<B::Output>,
-    B: RpcPathBuilder<R>,
+    A: RpcPath<B::Output>,
+    B: RpcPath<R>,
 {
     type Output = A::Output;
 
@@ -70,7 +70,7 @@ where
 #[derive(Debug, Copy, Clone, Default)]
 pub struct EmptyPathBuilder;
 
-impl<R: RpcPath> RpcPathBuilder<R> for EmptyPathBuilder {
+impl<R: CompleteRpcPath> RpcPath<R> for EmptyPathBuilder {
     type Output = R;
 
     fn make(self, remainder: R) -> Self::Output {
@@ -82,7 +82,7 @@ impl<R: RpcPath> RpcPathBuilder<R> for EmptyPathBuilder {
 #[doc(hidden)]
 pub mod rpc_path_macro_internals {
     pub use {
-        super::RpcPath,
+        super::CompleteRpcPath,
         std::{primitive::u32, unreachable},
     };
 }
@@ -105,19 +105,19 @@ macro_rules! rpc_path {
         }
 
         #[allow(irrefutable_let_patterns, unused_variables, unused_parens)]
-        impl $crate::game::services::rpc::rpc_path_macro_internals::RpcPath for $enum_name {
+        impl $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath for $enum_name {
             const MAX: $crate::game::services::rpc::rpc_path_macro_internals::u32 = 0
-                $(+ <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::RpcPath>::MAX)*;
+                $(+ <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX)*;
 
             fn as_index(&self) -> $crate::game::services::rpc::rpc_path_macro_internals::u32 {
                 let offset = 0;
 
                 $(
                     if let Self::$variant_name(var) = self {
-                        return offset + $crate::game::services::rpc::rpc_path_macro_internals::RpcPath::as_index(var);
+                        return offset + $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath::as_index(var);
                     }
 
-                    let offset = offset + <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::RpcPath>::MAX;
+                    let offset = offset + <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX;
                 )*
 
                 $crate::game::services::rpc::rpc_path_macro_internals::unreachable!();
@@ -197,45 +197,138 @@ pub type RpcManagerClient = RpcManager<ClientNetMode>;
 
 pub trait RpcNetMode: NetMode {
     type Peer: fmt::Debug + hash::Hash + Eq + Copy;
+    type QueueCatchupState: fmt::Debug + Default;
+    type ManagerCatchupState: fmt::Debug + Default;
+    type NodeCatchupState: fmt::Debug + Default;
+
+    fn import_catchup_packets(
+        state: &mut Self::ManagerCatchupState,
+        packets: &[RpcPacketMessage],
+    ) -> anyhow::Result<()>;
+
+    fn clear_catchup_packets(state: &mut Self::ManagerCatchupState);
+
+    fn produce_catchup_packets(state: Self::QueueCatchupState) -> Vec<RpcPacketMessage>;
 }
 
 impl RpcNetMode for ServerNetMode {
     type Peer = Entity;
+    type QueueCatchupState = FxHashMap<RpcNodeId, Vec<(u32, Bytes)>>;
+    type ManagerCatchupState = ();
+    type NodeCatchupState = Vec<(u32, RpcCatchupGenerator)>;
+
+    fn import_catchup_packets(
+        _state: &mut Self::ManagerCatchupState,
+        packets: &[RpcPacketMessage],
+    ) -> anyhow::Result<()> {
+        if !packets.is_empty() {
+            anyhow::bail!("peer somehow sent a catchup packet to the server");
+        }
+
+        Ok(())
+    }
+
+    fn clear_catchup_packets(_state: &mut Self::ManagerCatchupState) {
+        // nothing to clear
+    }
+
+    fn produce_catchup_packets(catchups: Self::QueueCatchupState) -> Vec<RpcPacketMessage> {
+        catchups
+            .into_iter()
+            .flat_map(|(node_id, packets)| {
+                packets
+                    .into_iter()
+                    .map(move |(path, data)| RpcPacketMessage {
+                        node_id: node_id.0.get(),
+                        path,
+                        data,
+                    })
+            })
+            .collect()
+    }
 }
 
 impl RpcNetMode for ClientNetMode {
     type Peer = ();
+    type QueueCatchupState = ();
+    type ManagerCatchupState = FxHashMap<(RpcNodeId, u32), Bytes>;
+    type NodeCatchupState = ();
+
+    fn import_catchup_packets(
+        state: &mut Self::ManagerCatchupState,
+        packets: &[RpcPacketMessage],
+    ) -> anyhow::Result<()> {
+        for packet in packets {
+            let Some(node_id) = NonZeroU64::new(packet.node_id).map(RpcNodeId) else {
+                anyhow::bail!("encountered a catchup packet with a target node ID of 0");
+            };
+            state.insert((node_id, packet.path), packet.data.clone());
+        }
+
+        Ok(())
+    }
+
+    fn clear_catchup_packets(state: &mut Self::ManagerCatchupState) {
+        state.retain(|_peer, queue| {
+            let was_empty = queue.is_empty();
+            queue.clear();
+            !was_empty
+        });
+    }
+
+    fn produce_catchup_packets(_state: Self::QueueCatchupState) -> Vec<RpcPacketMessage> {
+        vec![]
+    }
 }
 
 // Core
-
 delegate! {
     pub fn RpcMessageHandler<P>(peer: P, node: Entity, data: &Bytes) -> anyhow::Result<()>
+}
+
+delegate! {
+    pub fn RpcCatchupGenerator(peer: Entity, node: Entity) -> Bytes
 }
 
 #[derive_where(Debug, Default)]
 pub struct RpcManager<M: RpcNetMode> {
     _ty: PhantomData<M>,
     nodes: FxHashMap<RpcNodeId, Obj<RpcNode<M>>>,
-    message_queues: FxHashMap<M::Peer, Vec<RpcPacketMessage>>,
+    packet_queues: FxHashMap<M::Peer, PeerPacketQueue<M>>,
+    catchup_state: M::ManagerCatchupState,
+}
+
+#[derive_where(Debug, Default)]
+struct PeerPacketQueue<M: RpcNetMode> {
+    messages: Vec<RpcPacketMessage>,
+    catchups: M::QueueCatchupState,
 }
 
 make_extensible!(pub RpcManagerObj<M> for RpcManager where M: RpcNetMode);
 
 impl<M: RpcNetMode> RpcManager<M> {
-    pub fn queue_message(&mut self, peer: M::Peer, node: RpcNodeId, path: u32, data: Bytes) {
-        self.message_queues
-            .entry(peer)
-            .or_default()
-            .push(RpcPacketMessage {
-                node_id: node.0.get(),
-                path,
-                data,
-            });
+    fn packet_queue(&mut self, peer: M::Peer) -> &mut PeerPacketQueue<M> {
+        self.packet_queues.entry(peer).or_default()
     }
 
-    pub fn drain_queues(&mut self) -> impl Iterator<Item = (M::Peer, Vec<RpcPacketMessage>)> + '_ {
-        self.message_queues.drain()
+    pub fn queue_message(&mut self, peer: M::Peer, node: RpcNodeId, path: u32, data: Bytes) {
+        self.packet_queue(peer).messages.push(RpcPacketMessage {
+            node_id: node.0.get(),
+            path,
+            data,
+        });
+    }
+
+    pub fn drain_queues(&mut self) -> impl Iterator<Item = (M::Peer, RpcPacket)> + '_ {
+        self.packet_queues.drain().map(|(peer, queue)| {
+            (
+                peer,
+                RpcPacket {
+                    messages: queue.messages,
+                    catchup: M::produce_catchup_packets(queue.catchups),
+                },
+            )
+        })
     }
 }
 
@@ -243,6 +336,13 @@ impl<M: RpcNetMode> RpcManagerObj<M> {
     #[must_use]
     pub fn process_packet(&self, peer: M::Peer, packet: &RpcPacket) -> Vec<anyhow::Error> {
         let mut errors = Vec::new();
+
+        // Process catchup packets
+        if let Err(err) =
+            M::import_catchup_packets(&mut self.obj.get_mut().catchup_state, &packet.catchup)
+        {
+            return vec![err];
+        }
 
         // Process message packets
         for part in &packet.messages {
@@ -260,7 +360,7 @@ impl<M: RpcNetMode> RpcManagerObj<M> {
 
             let Some(handler) = target
                 .get()
-                .handlers
+                .message_handlers
                 .get(part.path as usize)
                 .cloned()
                 .flatten()
@@ -278,10 +378,8 @@ impl<M: RpcNetMode> RpcManagerObj<M> {
             }
         }
 
-        // Reject catchup packets
-        if !packet.catchup.is_empty() {
-            errors.push(anyhow::anyhow!("client attempted to send catchup packet"));
-        }
+        // Clear catchup packets
+        M::clear_catchup_packets(&mut self.obj.get_mut().catchup_state);
 
         // Report errors
         errors
@@ -305,8 +403,11 @@ pub struct RpcNode<M: RpcNetMode> {
     me: Entity,
 
     // Handlers
-    handlers: Vec<Option<RpcMessageHandler<M::Peer>>>,
+    message_handlers: Vec<Option<RpcMessageHandler<M::Peer>>>,
+    catchup_state: M::NodeCatchupState,
 }
+
+make_extensible!(pub RpcNodeObj<M> for RpcNode where M: RpcNetMode);
 
 impl<M: RpcNetMode> RpcNode<M> {
     pub fn new(id: RpcNodeId) -> impl CyclicCtor<Self> {
@@ -320,7 +421,8 @@ impl<M: RpcNetMode> RpcNode<M> {
                 me,
                 id,
                 manager,
-                handlers: Vec::new(),
+                message_handlers: Vec::new(),
+                catchup_state: <M::NodeCatchupState>::default(),
             }
         }
     }
@@ -343,8 +445,54 @@ impl<M: RpcNetMode> RpcNode<M> {
     }
 }
 
+impl RpcNodeObj<ServerNetMode> {
+    pub fn queue_catchup(&self, peer: Entity) {
+        let (me, id, handlers, manager) = {
+            let me = self.obj.get();
+            let id = me.id;
+
+            // Check if we have already caught up this peer.
+            if me
+                .manager
+                .get_mut()
+                .packet_queue(peer)
+                .catchups
+                .contains_key(&id)
+            {
+                return;
+            }
+
+            // Otherwise, move a bunch of state out of the node and end its borrow...
+            (
+                me.entity(),
+                id,
+                me.catchup_state.clone(),
+                me.manager.clone(),
+            )
+        };
+
+        // ...so that we can produce catchup packets for the node without concurrent borrows.
+        let packets = handlers
+            .into_iter()
+            .map(|(path, gen)| (path, gen.call(peer, me)))
+            .collect::<Vec<_>>();
+
+        // Add the data to the queue.
+        manager
+            .get_mut()
+            .packet_queue(peer)
+            .catchups
+            .insert(id, packets);
+    }
+}
+
 // === RpcNodeBuilder === //
 
+// Specializations
+pub type RpcNodeBuilderServer<'a, P> = RpcNodeBuilder<'a, P, ServerNetMode>;
+pub type RpcNodeBuilderClient<'a, P> = RpcNodeBuilder<'a, P, ClientNetMode>;
+
+// Core
 #[derive_where(Debug, Copy, Clone; P)]
 pub struct RpcNodeBuilder<'a, P, M: RpcNetMode> {
     pub node: &'a Obj<RpcNode<M>>,
@@ -364,8 +512,8 @@ impl<'a, P, M: RpcNetMode> RpcNodeBuilder<'a, P, M> {
     #[allow(clippy::should_implement_trait)]
     pub fn sub<C, R1, R2>(self, part: C) -> RpcNodeBuilder<'a, (P, C), M>
     where
-        P: RpcPathBuilder<R1>,
-        C: RpcPathBuilder<R2, Output = R1>,
+        P: RpcPath<R1>,
+        C: RpcPath<R2, Output = R1>,
     {
         RpcNodeBuilder {
             node: self.node,
@@ -374,7 +522,7 @@ impl<'a, P, M: RpcNetMode> RpcNodeBuilder<'a, P, M> {
     }
 }
 
-impl<P: RpcPathBuilder, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
+impl<P: RpcPath, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
     pub fn sender(&self) -> RpcNodeSender<M> {
         RpcNodeSender {
             node: self.node.clone(),
@@ -390,7 +538,7 @@ impl<P: RpcPathBuilder, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
     {
         let mut me = self.node.get_mut();
 
-        let slot = ensure_index(&mut me.handlers, self.path.index() as usize);
+        let slot = ensure_index(&mut me.message_handlers, self.path.index() as usize);
         debug_assert!(slot.is_none());
 
         *slot = Some(RpcMessageHandler::new(move |peer, target, data| {
@@ -408,6 +556,42 @@ impl<P: RpcPathBuilder, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
         self.bind_message_raw(move |peer, target, data| {
             handler(peer, target, decode_packet::<D>(data)?)
         });
+    }
+}
+
+impl<P: RpcPath> RpcNodeBuilderServer<'_, P> {
+    pub fn bind_catchup_raw(self, handler: impl 'static + Fn(Entity, Entity) -> Bytes) {
+        self.node
+            .get_mut()
+            .catchup_state
+            .push((self.path.index(), RpcCatchupGenerator::new(handler)));
+    }
+
+    pub fn bind_catchup<D: Serialize>(self, handler: impl 'static + Fn(Entity, Entity) -> D) {
+        self.bind_catchup_raw(move |peer, target| encode_packet(&handler(peer, target)));
+    }
+}
+
+impl<P: RpcPath> RpcNodeBuilderClient<'_, P> {
+    pub fn read_catchup_raw(self) -> anyhow::Result<Bytes> {
+        let node = self.node.get();
+        let manager = node.manager.get();
+
+        manager
+            .catchup_state
+            .get(&(node.id, self.path.index()))
+            .cloned()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "missing catchup for {node:?} with id {:?} and path {:?}",
+                    node.id,
+                    self.path.make(())
+                )
+            })
+    }
+
+    pub fn read_catchup<D: for<'a> Deserialize<'a>>(self) -> anyhow::Result<D> {
+        self.read_catchup_raw().and_then(|b| decode_packet(&b))
     }
 }
 
