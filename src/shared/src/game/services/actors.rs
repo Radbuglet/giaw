@@ -4,8 +4,7 @@ use std::{
     thread::panicking,
 };
 
-use aunty::{delegate, Entity, StrongEntity};
-use autoken::ImmutableBorrow;
+use aunty::{autoken::ImmutableBorrow, delegate, Entity, StrongEntity};
 use rustc_hash::FxHashSet;
 
 use super::transform::Transform;

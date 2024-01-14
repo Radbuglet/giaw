@@ -3,8 +3,7 @@ use std::{
     thread::panicking,
 };
 
-use aunty::{CloneCell, CyclicCtor, Entity, Obj};
-use autoken::ImmutableBorrow;
+use aunty::{autoken::ImmutableBorrow, CloneCell, CyclicCtor, Entity, Obj};
 use extend::ext;
 use glam::{Affine2, Vec2};
 

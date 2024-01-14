@@ -4,17 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.79"
-aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "826846ed76f86c4d73cc98b748afda1355b96739" }
-autoken = "0.1.0"
+anyhow = { workspace = true }
+aunty = { workspace = true }
+bytes = { workspace = true }
+glam = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+smallvec = { workspace = true }
+
 bincode = "1.3.3"
-bytes = { version = "1.5.0", features = ["serde"] }
 cbit = "0.1.0"
 derive-where = "1.2.7"
 enum-map = "2.7.3"
 extend = "1.2.0"
-glam = "0.21.3"
-hashbrown = "0.14.3"
-rustc-hash = "1.1.0"
-serde = { version = "1.0.195", features = ["derive"] }
-smallvec = "1.11.2"

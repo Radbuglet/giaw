@@ -493,7 +493,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aunty",
- "autoken",
  "bincode",
  "bytes 1.5.0",
  "cbit",
@@ -501,7 +500,6 @@ dependencies = [
  "enum-map",
  "extend",
  "glam",
- "hashbrown 0.14.3",
  "rustc-hash",
  "serde",
  "smallvec",

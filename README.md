@@ -6,15 +6,15 @@ This is a simple Rust project to challenge myself to write a game in a ~~week~~ 
 
 Core:
 
-- [ ] Implement ray and hull casts
-- [ ] Improve layer system
+- [x] Implement ray and hull casts
+- [x] Improve layer system
+- [x] Net-code:
+  - [x] RPC system
+  - [ ] Synchronized lists
+  - [ ] Movement replication
 - [ ] Implement collider masks
 - [ ] Implement a coroutine system
 - [ ] Implement an asset loader
-- [ ] Net-code:
-  - [ ] RPC system
-  - [ ] Synchronized lists
-  - [ ] Movement replication
 
 Game:
 
