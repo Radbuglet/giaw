@@ -14,7 +14,7 @@ impl SessionManager {
         self.sessions.insert(
             id,
             StrongEntity::new()
-                .with_debug_label("session")
+                .with_debug_label(format_args!("peer @ {id:?}"))
                 .with(SessionState { id }),
         );
     }

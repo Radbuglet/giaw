@@ -4,7 +4,7 @@ use giaw_shared::{
     game::services::{
         actors::{ActorManager, DespawnHandler, UpdateHandler},
         kinematic::{KinematicManager, TileColliderDescriptor},
-        rpc::{decode_packet, encode_packet, RpcManagerClient, RpcNodeId, RpcPacket},
+        rpc::{decode_packet, encode_packet, ClientRpcManager, RpcNodeId, RpcPacket},
         tile::{TileLayerConfig, TileMap},
         transform::{ColliderManager, Transform},
     },
@@ -31,7 +31,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
         .with(ColliderManager::default())
         .with(CameraManager::default())
         .with(TileMap::default())
-        .with(RpcManagerClient::default())
+        .with(ClientRpcManager::default())
         .with(QuadSocket::connect("127.0.0.1:8080").unwrap())
         .with_cyclic(KinematicManager::new())
         .with_cyclic(WorldRenderer::new())
@@ -43,7 +43,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                     if let Some(packet) = packet {
                         let packet = decode_packet::<RpcPacket>(&Bytes::from(packet)).unwrap();
 
-                        let errors = me.obj::<RpcManagerClient>().process_packet((), &packet);
+                        let errors = me.obj::<ClientRpcManager>().process_packet((), &packet);
                         if !errors.is_empty() {
                             panic!("Errors while processing packet {packet:?}: {errors:#?}");
                         }
@@ -64,7 +64,7 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                 // Process outbound packets
                 {
                     let mut socket = me.get_mut::<QuadSocket>();
-                    let mut manager = me.get_mut::<RpcManagerClient>();
+                    let mut manager = me.get_mut::<ClientRpcManager>();
 
                     for ((), packet) in manager.drain_queues() {
                         socket.send(&encode_packet(&packet));

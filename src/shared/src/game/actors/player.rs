@@ -1,28 +1,13 @@
 use aunty::{CyclicCtor, Obj};
 use glam::Vec2;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     game::services::{
         kinematic::{filter_descendants, KinematicManager},
         transform::{Collider, EntityExt, Transform},
     },
-    rpc_path,
     util::math::aabb::Aabb,
 };
-
-rpc_path! {
-    pub enum PlayerRpcs {
-        Packet1,
-        Packet2,
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PlayerPacket1 {
-    pub hello: u32,
-    pub world: String,
-}
 
 #[derive(Debug)]
 pub struct PlayerState {

@@ -4,7 +4,10 @@ use aunty::{delegate, make_extensible, CyclicCtor, Entity, Obj};
 use bytes::Bytes;
 use derive_where::derive_where;
 use rustc_hash::FxHashMap;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use super::{actors::DespawnStep, transform::EntityExt};
+use crate::util::lang::vec::ensure_index;
 
 // === Path === //
 
@@ -128,10 +131,6 @@ macro_rules! rpc_path {
 
 pub use rpc_path;
 
-use crate::util::lang::vec::ensure_index;
-
-use super::{actors::DespawnStep, transform::EntityExt};
-
 // === Protocol === //
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -192,8 +191,8 @@ impl NetModeSealed for ClientNetMode {}
 // === RpcManager === //
 
 // Specializations
-pub type RpcManagerServer = RpcManager<ServerNetMode>;
-pub type RpcManagerClient = RpcManager<ClientNetMode>;
+pub type ServerRpcManager = RpcManager<ServerNetMode>;
+pub type ClientRpcManager = RpcManager<ClientNetMode>;
 
 pub trait RpcNetMode: NetMode {
     type Peer: fmt::Debug + hash::Hash + Eq + Copy;
@@ -389,8 +388,8 @@ impl<M: RpcNetMode> RpcManagerObj<M> {
 // === RpcNode === //
 
 // Specializations
-pub type RpcNodeServer = RpcNode<ServerNetMode>;
-pub type RpcNodeClient = RpcNode<ClientNetMode>;
+pub type ServerRpcNode = RpcNode<ServerNetMode>;
+pub type ClientRpcNode = RpcNode<ClientNetMode>;
 
 // Core
 #[derive_where(Debug)]
@@ -445,6 +444,15 @@ impl<M: RpcNetMode> RpcNode<M> {
     }
 }
 
+impl<M: RpcNetMode> RpcNodeObj<M> {
+    pub fn builder(&self) -> RpcNodeBuilder<'_, EmptyPathBuilder, M> {
+        RpcNodeBuilder {
+            node: &self.obj,
+            path: EmptyPathBuilder,
+        }
+    }
+}
+
 impl RpcNodeObj<ServerNetMode> {
     pub fn queue_catchup(&self, peer: Entity) {
         let (me, id, handlers, manager) = {
@@ -489,8 +497,41 @@ impl RpcNodeObj<ServerNetMode> {
 // === RpcNodeBuilder === //
 
 // Specializations
-pub type RpcNodeBuilderServer<'a, P> = RpcNodeBuilder<'a, P, ServerNetMode>;
-pub type RpcNodeBuilderClient<'a, P> = RpcNodeBuilder<'a, P, ClientNetMode>;
+pub type ServerRpcNodeBuilder<'a, P> = RpcNodeBuilder<'a, P, ServerNetMode>;
+pub type ClientRpcNodeBuilder<'a, P> = RpcNodeBuilder<'a, P, ClientNetMode>;
+
+pub type ServerRpcNodeSender = RpcNodeSender<ServerNetMode>;
+pub type ClientRpcNodeSender = RpcNodeSender<ClientNetMode>;
+
+#[macro_export]
+macro_rules! rpc_builder {
+	($lt:lifetime server $($remaining:ty)?) => {
+		$crate::game::services::rpc::ServerRpcNodeBuilder<
+			$lt,
+			impl $crate::game::services::rpc::RpcPath<$($remaining)?> + $lt,
+		>
+	};
+	($lt:lifetime client $($remaining:ty)?) => {
+		$crate::game::services::rpc::ClientRpcNodeBuilder<
+			$lt,
+			impl $crate::game::services::rpc::RpcPath<$($remaining)?> + $lt,
+		>
+	};
+	(server $($remaining:ty)?) => {
+		$crate::game::services::rpc::ServerRpcNodeBuilder<
+			'_,
+			impl $crate::game::services::rpc::RpcPath<$($remaining)?>,
+		>
+	};
+	(client $($remaining:ty)?) => {
+		$crate::game::services::rpc::ClientRpcNodeBuilder<
+			'_,
+			impl $crate::game::services::rpc::RpcPath<$($remaining)?>,
+		>
+	};
+}
+
+pub use rpc_builder;
 
 // Core
 #[derive_where(Debug, Copy, Clone; P)]
@@ -551,7 +592,7 @@ impl<P: RpcPath, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
         handler: impl 'static + Fn(M::Peer, Entity, D) -> anyhow::Result<()>,
     ) where
         P: 'static,
-        D: for<'a> Deserialize<'a>,
+        D: DeserializeOwned,
     {
         self.bind_message_raw(move |peer, target, data| {
             handler(peer, target, decode_packet::<D>(data)?)
@@ -559,7 +600,7 @@ impl<P: RpcPath, M: RpcNetMode> RpcNodeBuilder<'_, P, M> {
     }
 }
 
-impl<P: RpcPath> RpcNodeBuilderServer<'_, P> {
+impl<P: RpcPath> ServerRpcNodeBuilder<'_, P> {
     pub fn bind_catchup_raw(self, handler: impl 'static + Fn(Entity, Entity) -> Bytes) {
         self.node
             .get_mut()
@@ -572,7 +613,7 @@ impl<P: RpcPath> RpcNodeBuilderServer<'_, P> {
     }
 }
 
-impl<P: RpcPath> RpcNodeBuilderClient<'_, P> {
+impl<P: RpcPath> ClientRpcNodeBuilder<'_, P> {
     pub fn read_catchup_raw(self) -> anyhow::Result<Bytes> {
         let node = self.node.get();
         let manager = node.manager.get();
@@ -590,12 +631,12 @@ impl<P: RpcPath> RpcNodeBuilderClient<'_, P> {
             })
     }
 
-    pub fn read_catchup<D: for<'a> Deserialize<'a>>(self) -> anyhow::Result<D> {
+    pub fn read_catchup<D: DeserializeOwned>(self) -> anyhow::Result<D> {
         self.read_catchup_raw().and_then(|b| decode_packet(&b))
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive_where(Debug, Clone)]
 pub struct RpcNodeSender<M: RpcNetMode> {
     pub node: Obj<RpcNode<M>>,
     pub path: u32,
