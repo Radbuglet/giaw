@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.79"
-aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "826846ed76f86c4d73cc98b748afda1355b96739" }
+aunty = { git = "https://github.com/Radbuglet/aunty.git", rev = "1edaba2722e8ed5cd4d565f7b1806b61bd3720bf" }
 bytes = { version = "1.5.0", features = ["serde"] }
 glam = "0.21.3"
 rustc-hash = "1.1.0"

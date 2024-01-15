@@ -1,6 +1,10 @@
 use aunty::{CyclicCtor, Entity, Obj, StrongEntity};
 use rustc_hash::FxHashMap;
 
+use crate::game::services::{actors::ActorManager, transform::Transform};
+
+// === ItemRegistry === //
+
 #[derive(Debug, Default)]
 pub struct ItemRegistry {
     by_id: FxHashMap<String, StrongEntity>,
@@ -18,31 +22,46 @@ impl ItemRegistry {
     }
 }
 
+// === InventoryData === //
+
 #[derive(Debug)]
 pub struct InventoryData {
+    transform: Obj<Transform>,
     stacks: Box<[Option<Obj<ItemStackBase>>]>,
 }
 
 impl InventoryData {
-    pub fn new(count: usize) -> Self {
-        Self {
+    pub fn new(count: usize) -> impl CyclicCtor<Self> {
+        move |me, _| Self {
+            transform: me.obj(),
             stacks: Box::from_iter((0..count).map(|_| None)),
         }
     }
 
-	pub fn insert_stack(&mut self, stack: Obj<ItemStackBase>) {
-		for slot in &mut *self.stacks {
-			if slot.is_none() {
-				*slot = Some(stack);
-				break;
-			}
-		}
-	}
+    pub fn insert_stack_raw(&mut self, stack: Obj<ItemStackBase>) {
+        for slot in &mut *self.stacks {
+            if slot.is_none() {
+                *slot = Some(stack);
+                break;
+            }
+        }
+    }
+
+    pub fn insert_stack(&mut self, actors: &ActorManager, material: Entity, count: u32) {
+        self.insert_stack_raw(create_basic_stack(
+            actors,
+            Some(self.transform.clone()),
+            material,
+            count,
+        ));
+    }
 
     pub fn stacks(&self) -> &[Option<Obj<ItemStackBase>>] {
         &self.stacks
     }
 }
+
+// === ItemStackBase === //
 
 #[derive(Debug)]
 pub struct ItemStackBase {
@@ -59,4 +78,20 @@ impl ItemStackBase {
             count,
         }
     }
+}
+
+// === ItemStack Prefab === //
+
+pub fn create_basic_stack(
+    actors: &ActorManager,
+    parent: Option<Obj<Transform>>,
+    material: Entity,
+    count: u32,
+) -> Obj<ItemStackBase> {
+    actors
+        .spawn()
+        .with_debug_label("item stack")
+        .with_cyclic(Transform::new(parent))
+        .with_cyclic(ItemStackBase::new(material, count))
+        .obj()
 }

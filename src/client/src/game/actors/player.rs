@@ -244,7 +244,7 @@ pub fn create_player(
         .with_cyclic(Transform::new(parent))
         .with_cyclic(Collider::new_centered(Vec2::ZERO, Vec2::splat(0.6)))
         .with_cyclic(ClientRpcNode::new(rpc_id))
-        .with(InventoryData::new(9 * 4))
+        .with_cyclic(InventoryData::new(9 * 4))
         .with_cyclic(VirtualCamera::new_attached(
             Aabb::ZERO,
             VirtualCameraConstraints::default().keep_visible_area(Vec2::splat(10.)),

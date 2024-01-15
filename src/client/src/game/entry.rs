@@ -3,7 +3,7 @@ use bytes::Bytes;
 use giaw_shared::{
     game::{
         actors::{
-            inventory::{InventoryData, ItemRegistry, ItemStackBase},
+            inventory::{InventoryData, ItemRegistry},
             player::PlayerState,
         },
         services::{
@@ -17,7 +17,7 @@ use giaw_shared::{
     util::math::aabb::{Aabb, AabbI},
 };
 use macroquad::{
-    color::{BLACK, GRAY, GREEN, WHITE},
+    color::{BLACK, GRAY, GREEN, RED, WHITE},
     math::{IVec2, Vec2},
     shapes::draw_rectangle,
 };
@@ -242,15 +242,28 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                     )),
             );
 
-            let player = create_player(&actors, RpcNodeId::ROOT, Some(scene.obj()));
-            player.get_mut::<InventoryData>().insert_stack(
-                actors
-                    .spawn()
-                    .with_debug_label("my stack")
-                    .with_cyclic(Transform::new(Some(player.obj())))
-                    .with_cyclic(ItemStackBase::new(stone, 1))
-                    .obj(),
+            let blaster = item_registry.register(
+                "blaster",
+                StrongEntity::new()
+                    .with_debug_label("blaster")
+                    .with(ClientItemDescriptor { color: RED })
+                    .with(ClientItemUseHandler::new(
+                        |player, _stack, _mode, _from, to| {
+                            player.get_mut::<PlayerState>().velocity =
+                                (to - player.get::<Transform>().global_pos()) * 10.;
+                        },
+                    )),
             );
+
+            let player = create_player(&actors, RpcNodeId::ROOT, Some(scene.obj()));
+            player
+                .get_mut::<InventoryData>()
+                .insert_stack(&actors, stone, 1);
+
+            player
+                .get_mut::<InventoryData>()
+                .insert_stack(&actors, blaster, 1);
+
             scene.get_mut::<GameClientState>().local_player = Some(player);
         }
     }
