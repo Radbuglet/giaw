@@ -11,7 +11,7 @@ use giaw_shared::{
             kinematic::{KinematicManager, TileColliderDescriptor},
             rpc::{decode_packet, encode_packet, ClientRpcManager, RpcNodeId, RpcPacket},
             tile::{TileLayerConfig, TileMap},
-            transform::{ColliderManager, Transform},
+            transform::{ColliderManager, EntityExt, Transform},
         },
     },
     util::math::aabb::{Aabb, AabbI},
@@ -23,10 +23,13 @@ use macroquad::{
 };
 use quad_net::quad_socket::client::QuadSocket;
 
-use crate::engine::scene::RenderHandler;
+use crate::{engine::scene::RenderHandler, game::actors::inventory::InteractMode};
 
 use super::{
-    actors::{inventory::ClientItemDescriptor, player::create_player},
+    actors::{
+        inventory::{ClientItemDescriptor, ClientItemUseHandler},
+        player::{create_player, ClientPlayerDriver},
+    },
     services::{
         camera::CameraManager,
         render::{TileVisualDescriptor, WorldRenderer},
@@ -218,7 +221,25 @@ pub fn create_game(parent: Option<Obj<Transform>>) -> StrongEntity {
                 "stone",
                 StrongEntity::new()
                     .with_debug_label("stone")
-                    .with(ClientItemDescriptor { color: GRAY }),
+                    .with(ClientItemDescriptor { color: GRAY })
+                    .with(ClientItemUseHandler::new(
+                        |player, _stack, mode, from, to| {
+                            let mut tile_map = player.deep_obj::<TileMap>().get_mut();
+                            let layer = tile_map.layer("under_player");
+                            let layer_config = tile_map.layer_config(layer);
+                            let material = match mode {
+                                InteractMode::Build => {
+                                    tile_map.materials.get().get_by_name("placeholder")
+                                }
+                                InteractMode::Break => tile_map.materials.get().get_by_name("air"),
+                            };
+
+                            let player = player.get::<ClientPlayerDriver>();
+                            cbit::cbit!(for pos in player.selected_tiles(layer_config, from, to) {
+                                tile_map.set(layer, pos, material);
+                            });
+                        },
+                    )),
             );
 
             let player = create_player(&actors, RpcNodeId::ROOT, Some(scene.obj()));
