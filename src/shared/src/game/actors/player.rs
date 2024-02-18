@@ -1,12 +1,12 @@
 use aunty::{CyclicCtor, Obj};
 use glam::Vec2;
 
-use crate::{
-    game::services::{
+use crate::util::{
+    game::{
         kinematic::{filter_descendants, KinematicManager},
         transform::{Collider, EntityExt, Transform},
     },
-    util::math::aabb::Aabb,
+    math::aabb::Aabb,
 };
 
 #[derive(Debug)]

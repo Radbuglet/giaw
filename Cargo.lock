@@ -494,6 +494,7 @@ dependencies = [
  "anyhow",
  "aunty",
  "bincode",
+ "bitflags 2.4.1",
  "bytes 1.5.0",
  "cbit",
  "derive-where",

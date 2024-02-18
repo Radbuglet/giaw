@@ -26,6 +26,10 @@ impl SessionManager {
     pub fn peer_by_id(&self, id: QuadPeerId) -> Entity {
         self.sessions[&id].entity()
     }
+
+    pub fn peers(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.sessions.values().map(StrongEntity::entity)
+    }
 }
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use aunty::{autoken::ImmutableBorrow, CyclicCtor, Obj};
-use giaw_shared::game::services::{
+use giaw_shared::util::game::{
     actors::ActorManager,
     tile::{MaterialCache, TileMap},
     transform::EntityExt,

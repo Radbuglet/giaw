@@ -3,7 +3,7 @@ use giaw_server::net::{
     session::{SessionManager, SessionState},
     transport::{QuadServer, QuadServerEvent},
 };
-use giaw_shared::game::services::{
+use giaw_shared::util::game::{
     rpc::{decode_packet, encode_packet, RpcNodeId, RpcPacket, ServerRpcManager, ServerRpcNode},
     transform::Transform,
 };

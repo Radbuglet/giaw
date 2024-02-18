@@ -1,20 +1,20 @@
 use aunty::{autoken::ImmutableBorrow, make_extensible, CyclicCtor, Entity, Obj, StrongEntity};
 use bytes::Bytes;
 use giaw_shared::{
-    game::{
-        actors::{
-            inventory::{InventoryData, ItemRegistry},
-            player::PlayerState,
-        },
-        services::{
+    game::actors::{
+        inventory::{InventoryData, ItemRegistry},
+        player::PlayerState,
+    },
+    util::{
+        game::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
             kinematic::{KinematicManager, TileColliderDescriptor},
             rpc::{decode_packet, encode_packet, ClientRpcManager, RpcNodeId, RpcPacket},
             tile::{TileLayerConfig, TileMap},
             transform::{ColliderManager, EntityExt, Transform},
         },
+        math::aabb::{Aabb, AabbI},
     },
-    util::math::aabb::{Aabb, AabbI},
 };
 use macroquad::{
     color::{BLACK, GRAY, GREEN, RED, WHITE},

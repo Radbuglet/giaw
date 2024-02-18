@@ -1,7 +1,7 @@
 use aunty::{CyclicCtor, Entity, Obj, StrongEntity};
 use rustc_hash::FxHashMap;
 
-use crate::game::services::{actors::ActorManager, transform::Transform};
+use crate::util::game::{actors::ActorManager, transform::Transform};
 
 // === ItemRegistry === //
 

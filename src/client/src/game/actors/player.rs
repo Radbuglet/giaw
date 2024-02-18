@@ -2,16 +2,16 @@ use std::ops::ControlFlow;
 
 use aunty::{make_extensible, CyclicCtor, Entity, Obj};
 use giaw_shared::{
-    game::{
-        actors::{inventory::InventoryData, player::PlayerState},
-        services::{
+    game::actors::{inventory::InventoryData, player::PlayerState},
+    util::{
+        game::{
             actors::{ActorManager, DespawnHandler, UpdateHandler},
             rpc::{ClientRpcNode, RpcNodeId},
             tile::{TileLayerConfig, TileMap},
             transform::{Collider, EntityExt, Transform},
         },
+        math::{aabb::Aabb, scalar::lerp_f32},
     },
-    util::math::{aabb::Aabb, scalar::lerp_f32},
 };
 use macroquad::{
     color::{BLUE, RED},

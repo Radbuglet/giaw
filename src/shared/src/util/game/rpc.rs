@@ -108,22 +108,22 @@ macro_rules! rpc_path {
         }
 
         #[allow(irrefutable_let_patterns, unused_variables, unused_parens)]
-        impl $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath for $enum_name {
-            const MAX: $crate::game::services::rpc::rpc_path_macro_internals::u32 = 0
-                $(+ <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX)*;
+        impl $crate::util::game::rpc::rpc_path_macro_internals::CompleteRpcPath for $enum_name {
+            const MAX: $crate::util::game::rpc::rpc_path_macro_internals::u32 = 0
+                $(+ <($($variant_ty)?) as $crate::util::game::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX)*;
 
-            fn as_index(&self) -> $crate::game::services::rpc::rpc_path_macro_internals::u32 {
+            fn as_index(&self) -> $crate::util::game::rpc::rpc_path_macro_internals::u32 {
                 let offset = 0;
 
                 $(
                     if let Self::$variant_name(var) = self {
-                        return offset + $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath::as_index(var);
+                        return offset + $crate::util::game::rpc::rpc_path_macro_internals::CompleteRpcPath::as_index(var);
                     }
 
-                    let offset = offset + <($($variant_ty)?) as $crate::game::services::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX;
+                    let offset = offset + <($($variant_ty)?) as $crate::util::game::rpc::rpc_path_macro_internals::CompleteRpcPath>::MAX;
                 )*
 
-                $crate::game::services::rpc::rpc_path_macro_internals::unreachable!();
+                $crate::util::game::rpc::rpc_path_macro_internals::unreachable!();
             }
         }
     )*};
@@ -506,27 +506,27 @@ pub type ClientRpcNodeSender = RpcNodeSender<ClientNetMode>;
 #[macro_export]
 macro_rules! rpc_builder {
 	($lt:lifetime server $($remaining:ty)?) => {
-		$crate::game::services::rpc::ServerRpcNodeBuilder<
+		$crate::util::game::rpc::ServerRpcNodeBuilder<
 			$lt,
-			impl $crate::game::services::rpc::RpcPath<$($remaining)?> + $lt,
+			impl $crate::util::game::rpc::RpcPath<$($remaining)?> + $lt,
 		>
 	};
 	($lt:lifetime client $($remaining:ty)?) => {
-		$crate::game::services::rpc::ClientRpcNodeBuilder<
+		$crate::util::game::rpc::ClientRpcNodeBuilder<
 			$lt,
-			impl $crate::game::services::rpc::RpcPath<$($remaining)?> + $lt,
+			impl $crate::util::game::rpc::RpcPath<$($remaining)?> + $lt,
 		>
 	};
 	(server $($remaining:ty)?) => {
-		$crate::game::services::rpc::ServerRpcNodeBuilder<
+		$crate::util::game::rpc::ServerRpcNodeBuilder<
 			'_,
-			impl $crate::game::services::rpc::RpcPath<$($remaining)?>,
+			impl $crate::util::game::rpc::RpcPath<$($remaining)?>,
 		>
 	};
 	(client $($remaining:ty)?) => {
-		$crate::game::services::rpc::ClientRpcNodeBuilder<
+		$crate::util::game::rpc::ClientRpcNodeBuilder<
 			'_,
-			impl $crate::game::services::rpc::RpcPath<$($remaining)?>,
+			impl $crate::util::game::rpc::RpcPath<$($remaining)?>,
 		>
 	};
 }

@@ -10,7 +10,6 @@ Core:
 - [x] Improve layer system
 - [x] Net-code:
   - [x] RPC system
-  - [ ] Add culling support to RPCs
   - [ ] Synchronized lists
   - [ ] Movement replication
 - [ ] Implement collider masks

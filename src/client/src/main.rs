@@ -1,7 +1,7 @@
 use std::{future::Future, pin::pin};
 
 use giaw_client::{engine::scene::RenderHandler, game::entry::create_game};
-use giaw_shared::game::services::actors::{DespawnHandler, UpdateHandler};
+use giaw_shared::util::game::actors::{DespawnHandler, UpdateHandler};
 use macroquad::{
     input::{is_key_pressed, is_quit_requested},
     miniquad::KeyCode,
